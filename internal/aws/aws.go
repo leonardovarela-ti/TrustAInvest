@@ -10,7 +10,7 @@ import (
 "github.com/aws/aws-sdk-go/aws"
 "github.com/aws/aws-sdk-go/aws/session"
 "github.com/aws/aws-sdk-go/service/s3"
-"github.com/aws/aws-sdk-go/service/cognito/cognitoidentityprovider"
+"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 )
 
 // S3Client is a wrapper for AWS S3 operations

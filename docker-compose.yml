@@ -1,0 +1,210 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: trustainvest
+      POSTGRES_PASSWORD: trustainvest
+      POSTGRES_DB: trustainvest
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - backend
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,dynamodb,cognito,apigateway,lambda,sqs,sns
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - ./localstack_data:/var/lib/localstack # Mounts the local directory to the container
+      - /var/run/docker.sock:/var/run/docker.sock # Mounts the docker socket
+      - ./scripts/init-localstack.sh:/docker-entrypoint-initdb.d/init-localstack.sh
+     # - localstack-data:/tmp/localstack
+    networks:
+      - backend
+
+  user-service:
+    build:
+      context: .
+      dockerfile: ./cmd/user-service/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+
+  account-service:
+    build:
+      context: .
+      dockerfile: ./cmd/account-service/Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - USER_SERVICE_URL=http://user-service:8080
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+      - user-service
+
+  trust-service:
+    build:
+      context: .
+      dockerfile: ./cmd/trust-service/Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - USER_SERVICE_URL=http://user-service:8080
+      - ACCOUNT_SERVICE_URL=http://account-service:8080
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+      - user-service
+      - account-service
+
+  investment-service:
+    build:
+      context: .
+      dockerfile: ./cmd/investment-service/Dockerfile
+    ports:
+      - "8083:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - USER_SERVICE_URL=http://user-service:8080
+      - ACCOUNT_SERVICE_URL=http://account-service:8080
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+      - user-service
+      - account-service
+
+  document-service:
+    build:
+      context: .
+      dockerfile: ./cmd/document-service/Dockerfile
+    ports:
+      - "8084:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./cmd/notification-service/Dockerfile
+    ports:
+      - "8085:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  localstack-data:
