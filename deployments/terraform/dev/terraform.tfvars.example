@@ -1,0 +1,6 @@
+aws_region = "us-east-1"
+environment = "dev"
+project_name = "TrustAInvest.com"
+db_instance_class = "db.t3.small"
+db_allocated_storage = 20
+db_password = "changeme"

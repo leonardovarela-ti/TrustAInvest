@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'TrustAInvest Infrastructure Stack'
+
+Parameters:
+Environment:
+Type: String
+Default: dev
+AllowedValues:
+- dev
+- stage
+- prod
+Description: Environment name
+
+ProjectName:
+Type: String
+Default: TrustAInvest.com
+Description: Project name
+
+DBPassword:
+Type: String
+NoEcho: true
+Description: Database master password
+
+Resources:
+# VPC and Network
+VPC:
+Type: AWS::EC2::VPC
+Properties:
+CidrBlock: 10.0.0.0/16
+EnableDnsSupport: true
+EnableDnsHostnames: true
+Tags:
+- Key: Name
+Value: !Sub ${ProjectName}-${Environment}-vpc
+
+# Example of RDS instance
+RDSInstance:
+Type: AWS::RDS::DBInstance
+Properties:
+DBInstanceIdentifier: !Sub ${ProjectName}-${Environment}
+AllocatedStorage: 20
+DBInstanceClass: db.t3.small
+Engine: postgres
+MasterUsername: trustainvest
+MasterUserPassword: !Ref DBPassword
+VPCSecurityGroups:
+- !GetAtt DBSecurityGroup.GroupId
+DBSubnetGroupName: !Ref DBSubnetGroup
+Tags:
+- Key: Name
+Value: !Sub ${ProjectName}-${Environment}-db
+
+# Cognito User Pool
+UserPool:
+Type: AWS::Cognito::UserPool
+Properties:
+UserPoolName: !Sub ${ProjectName}-${Environment}-user-pool
+AutoVerifiedAttributes:
+- email
+Policies:
+PasswordPolicy:
+MinimumLength: 8
+RequireUppercase: true
+RequireLowercase: true
+RequireNumbers: true
+RequireSymbols: true
+Schema:
+- Name: email
+AttributeDataType: String
+Mutable: true
+Required: true
+- Name: phone_number
+AttributeDataType: String
+Mutable: true
+Required: false
+
+Outputs:
+VpcId:
+Description: VPC ID
+Value: !Ref VPC
+Export:
+Name: !Sub ${ProjectName}-${Environment}-vpc-id
+
+DBEndpoint:
+Description: RDS Endpoint
+Value: !GetAtt RDSInstance.Endpoint.Address
+Export:
+Name: !Sub ${ProjectName}-${Environment}-db-endpoint
+
+UserPoolId:
+Description: Cognito User Pool ID
+Value: !Ref UserPool
+Export:
+Name: !Sub ${ProjectName}-${Environment}-user-pool-id
