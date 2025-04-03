@@ -29,6 +29,7 @@ TrustAInvest.com is a secure financial technology platform that enables users to
 - \"docs/\": Documentation
 - \"test/\": Integration and e2e tests
 - \"web/\": Web application
+- \"setup/\": Setup of the project from a command line interface.
 
 ### Services
 
