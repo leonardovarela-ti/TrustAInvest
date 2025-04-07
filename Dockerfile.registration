@@ -1,0 +1,34 @@
+# Dockerfile.registration
+FROM golang:1.18-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy go.mod and go.sum files
+COPY go.mod go.sum* ./
+RUN go mod download
+
+# Copy the source code
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/user-registration-service ./cmd/user-registration-service
+
+# Final stage
+FROM alpine:3.15
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata
+
+# Copy binary from builder stage
+COPY --from=builder /app/user-registration-service .
+
+# Expose port
+EXPOSE 8080
+
+# Run the application
+CMD ["/app/user-registration-service"]

@@ -12,6 +12,12 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./migrations:/docker-entrypoint-initdb.d/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trustainvest"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - backend
 
@@ -21,6 +27,11 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - backend
 
@@ -29,16 +40,23 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,dynamodb,cognito,apigateway,lambda,sqs,sns
+      - SERVICES=s3,dynamodb,cognito,apigateway,lambda,sqs,sns,kms
       - DEBUG=1
       - DATA_DIR=/tmp/localstack/data
+      - AWS_DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
-      - ./localstack_data:/var/lib/localstack # Mounts the local directory to the container
-      - /var/run/docker.sock:/var/run/docker.sock # Mounts the docker socket
+      - ./localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./scripts/init-localstack.sh:/docker-entrypoint-initdb.d/init-localstack.sh
-     # - localstack-data:/tmp/localstack
+      - ./init-localstack.sh:/docker-entrypoint-initdb.d/init-kyc-resources.sh
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   user-service:
     build:
@@ -61,9 +79,12 @@ services:
     networks:
       - backend
     depends_on:
-      - postgres
-      - redis
-      - localstack
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
 
   account-service:
     build:
@@ -87,10 +108,14 @@ services:
     networks:
       - backend
     depends_on:
-      - postgres
-      - redis
-      - localstack
-      - user-service
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      user-service:
+        condition: service_started
 
   trust-service:
     build:
@@ -115,11 +140,16 @@ services:
     networks:
       - backend
     depends_on:
-      - postgres
-      - redis
-      - localstack
-      - user-service
-      - account-service
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      account-service:
+        condition: service_started
 
   investment-service:
     build:
@@ -144,11 +174,16 @@ services:
     networks:
       - backend
     depends_on:
-      - postgres
-      - redis
-      - localstack
-      - user-service
-      - account-service
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      account-service:
+        condition: service_started
 
   document-service:
     build:
@@ -171,9 +206,12 @@ services:
     networks:
       - backend
     depends_on:
-      - postgres
-      - redis
-      - localstack
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
 
   notification-service:
     build:
@@ -196,9 +234,83 @@ services:
     networks:
       - backend
     depends_on:
-      - postgres
-      - redis
-      - localstack
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  user-registration-service:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.registration
+    ports:
+      - "8086:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KYC_QUEUE_URL=http://localstack:4566/000000000000/kyc-queue
+      - KYC_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:kyc-topic
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
+      - KMS_KEY_ID=alias/trustainvest-key
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - backend
+
+  kyc-worker:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.kyc-worker
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KYC_QUEUE_URL=http://localstack:4566/000000000000/kyc-queue
+      - KYC_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:kyc-topic
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
+      - KMS_KEY_ID=alias/trustainvest-key
+      - KYC_PROVIDER_URL=https://example.com/kyc-api
+      - KYC_PROVIDER_API_KEY=test-api-key
+      - WORKER_POOL_SIZE=3
+      - WORKER_BATCH_SIZE=10
+      - WORKER_POLL_INTERVAL_SECONDS=10
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - backend
 
 networks:
   backend:
