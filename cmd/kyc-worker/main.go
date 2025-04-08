@@ -27,7 +27,7 @@ type KYCRequest struct {
 	ID                 string     `json:"id"`
 	UserID             string     `json:"user_id"`
 	Status             KYCStatus  `json:"status"`
-	SubmittedAt        time.Time  `json:"submitted_at"`
+	CreatedAt          time.Time  `json:"created_at"`
 	ProcessedAt        *time.Time `json:"processed_at,omitempty"`
 	CompletedAt        *time.Time `json:"completed_at,omitempty"`
 	DocumentIDs        []string   `json:"document_ids"`
@@ -103,10 +103,10 @@ func processKYCRequests(ctx context.Context) {
 func processPendingRequests(ctx context.Context) error {
 	// Fetch pending KYC requests
 	rows, err := db.Query(ctx, `
-		SELECT id, user_id, status, submitted_at, processed_at, 
+		SELECT id, user_id, status, created_at, processed_at, 
 		       completed_at, document_ids, verification_method, 
 		       rejection_reason
-		FROM users.kyc_requests
+		FROM kyc.verification_requests
 		WHERE status = $1
 		LIMIT 10
 	`, KYCStatusPending)
@@ -122,7 +122,7 @@ func processPendingRequests(ctx context.Context) error {
 		var documentIDs []string
 
 		if err := rows.Scan(
-			&req.ID, &req.UserID, &req.Status, &req.SubmittedAt,
+			&req.ID, &req.UserID, &req.Status, &req.CreatedAt,
 			&req.ProcessedAt, &req.CompletedAt, &documentIDs,
 			&req.VerificationMethod, &req.RejectionReason,
 		); err != nil {
@@ -151,7 +151,7 @@ func processKYCRequest(ctx context.Context, req KYCRequest) error {
 	// Update status to IN_PROCESS
 	now := time.Now()
 	if _, err := db.Exec(ctx, `
-		UPDATE users.kyc_requests
+		UPDATE kyc.verification_requests
 		SET status = $1, processed_at = $2
 		WHERE id = $3
 	`, KYCStatusInProcess, now, req.ID); err != nil {
@@ -166,7 +166,7 @@ func processKYCRequest(ctx context.Context, req KYCRequest) error {
 
 		// Mark as retry if there's a transient error
 		if _, err := db.Exec(ctx, `
-			UPDATE users.kyc_requests
+			UPDATE kyc.verification_requests
 			SET status = $1, rejection_reason = $2
 			WHERE id = $3
 		`, KYCStatusRetry, "Verification service error", req.ID); err != nil {
@@ -181,7 +181,7 @@ func processKYCRequest(ctx context.Context, req KYCRequest) error {
 	if verificationResult.Verified {
 		// Update KYC request
 		if _, err := db.Exec(ctx, `
-			UPDATE users.kyc_requests
+			UPDATE kyc.verification_requests
 			SET status = $1, completed_at = $2
 			WHERE id = $3
 		`, KYCStatusVerified, completedAt, req.ID); err != nil {
@@ -263,7 +263,7 @@ func simulateKYCVerification(ctx context.Context, req KYCRequest) (VerificationR
 func performCleanup(ctx context.Context) error {
 	// Update any stuck IN_PROCESS requests to RETRY
 	_, err := db.Exec(ctx, `
-		UPDATE users.kyc_requests
+		UPDATE kyc.verification_requests
 		SET status = $1, rejection_reason = $2
 		WHERE status = $3 AND processed_at < $4
 	`, KYCStatusRetry, "Worker shutdown while processing", KYCStatusInProcess, time.Now().Add(-1*time.Hour))
