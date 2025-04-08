@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS users.users (
     kyc_status VARCHAR(50) DEFAULT 'PENDING',
     kyc_verified_at TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT TRUE,
-    password_hash VARCHAR(255) NOT NULL
+    password_hash VARCHAR(255) NOT NULL,
+    email_verified BOOLEAN DEFAULT FALSE
 );
  
 CREATE INDEX idx_users_username ON users.users(username);

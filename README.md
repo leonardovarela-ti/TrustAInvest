@@ -207,6 +207,14 @@ docker-compose exec postgres psql -U trustainvest -d trustainvest -c "SELECT id,
 ```bash
 docker-compose exec postgres psql -U trustainvest -d trustainvest -c "SELECT * FROM kyc.verification_requests;"
 ```
+# Verify the user via Curl
+You can test the verification of the user using curl:
+curl -X POST \
+  http://localhost:8086/api/v1/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "token": "26db149c-ca74-41ee-b98d-951a170b7786"
+  }'
 
 ### View Notifications
 
