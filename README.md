@@ -171,12 +171,12 @@ The system is designed with a microservices architecture:
 You can test the system using curl:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/register \
+curl -X POST http://localhost:8086/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "johndoe",
     "email": "john.doe@example.com",
-    "password": "securePassword123",
+    "password": "securePassword123!",
     "phone_number": "+15551234567",
     "first_name": "John",
     "last_name": "Doe",
@@ -189,7 +189,8 @@ curl -X POST http://localhost:8080/api/v1/register \
       "country": "USA"
     },
     "ssn": "123-45-6789",
-    "risk_profile": "MODERATE"
+    "risk_profile": "MODERATE",
+    "accept_terms": true
   }'
 ```
 

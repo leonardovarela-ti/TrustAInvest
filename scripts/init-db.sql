@@ -31,12 +31,27 @@ CREATE TABLE IF NOT EXISTS users.users (
     device_id VARCHAR(255),
     kyc_status VARCHAR(50) DEFAULT 'PENDING',
     kyc_verified_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    password_hash VARCHAR(255) NOT NULL
 );
-
+ 
 CREATE INDEX idx_users_username ON users.users(username);
 CREATE INDEX idx_users_email ON users.users(email);
 CREATE INDEX idx_users_kyc_status ON users.users(kyc_status);
+
+-- Add email_verifications table to users schema
+CREATE TABLE IF NOT EXISTS users.email_verifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users.users(id),
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    verified_at TIMESTAMP WITH TIME ZONE,
+    is_verified BOOLEAN DEFAULT FALSE
+);
+
+-- Create index on token for fast lookups
+CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON users.email_verifications(token);
 
 -- Create accounts schema tables
 CREATE TABLE IF NOT EXISTS accounts.accounts (
@@ -125,8 +140,8 @@ CREATE INDEX idx_kyc_documents_verification_id ON kyc.documents(verification_req
 -- Create example user for development
 INSERT INTO users.users (
     username, email, first_name, last_name, date_of_birth, 
-    street, city, state, zip_code, country, risk_profile
+    street, city, state, zip_code, country, risk_profile, password_hash
 ) VALUES (
     'demo_user', 'demo@trustainvest.com', 'Demo', 'User', '1980-01-01',
-    '123 Main St', 'New York', 'NY', '10001', 'USA', 'MODERATE'
+    '123 Main St', 'New York', 'NY', '10001', 'USA', 'MODERATE', 'testhash'
 ) ON CONFLICT (username) DO NOTHING;

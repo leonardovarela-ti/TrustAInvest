@@ -119,6 +119,7 @@ func processPendingRequests(ctx context.Context) error {
 	var requests []KYCRequest
 	for rows.Next() {
 		var req KYCRequest
+		log.Printf("Requests: %v", &req.ID)
 		var documentIDs []string
 
 		if err := rows.Scan(
