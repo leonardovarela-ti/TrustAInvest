@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4A90E2" />
+      <stop offset="100%" stop-color="#1E3A8A" />
+    </linearGradient>
+  </defs>
+  <circle cx="150" cy="150" r="120" fill="url(#gradient)" />
+  <path d="M100,150 L130,180 L200,110" stroke="white" stroke-width="15" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="150" y="240" font-family="Arial" font-size="24" font-weight="bold" text-anchor="middle" fill="#1E3A8A">KYC Verifier</text>
+</svg>

@@ -146,3 +146,128 @@ INSERT INTO users.users (
     'demo_user', 'demo@trustainvest.com', 'Demo', 'User', '1980-01-01',
     '123 Main St', 'New York', 'NY', '10001', 'USA', 'MODERATE', 'testhash'
 ) ON CONFLICT (username) DO NOTHING;
+
+-- KYC Verifier Database Tables
+
+-- Table for KYC verifiers
+CREATE TABLE IF NOT EXISTS kyc.verifiers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'VERIFIER',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create default admin user (password: admin123)
+INSERT INTO kyc.verifiers (
+    username, 
+    email, 
+    password_hash, 
+    first_name, 
+    last_name, 
+    role
+) VALUES (
+    'admin',
+    'admin@trustainvest.com',
+    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    'Admin',
+    'User',
+    'ADMIN'
+) ON CONFLICT (username) DO NOTHING;
+
+-- Table for verification requests
+CREATE TABLE IF NOT EXISTS kyc.verification_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users.users(id),
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    date_of_birth DATE NOT NULL,
+    address_line1 VARCHAR(100) NOT NULL,
+    address_line2 VARCHAR(100),
+    city VARCHAR(50) NOT NULL,
+    state VARCHAR(50) NOT NULL,
+    postal_code VARCHAR(20) NOT NULL,
+    country VARCHAR(50) NOT NULL,
+    additional_info TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    rejection_reason TEXT,
+    verifier_id UUID REFERENCES kyc.verifiers(id),
+    verified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create index on status for faster filtering
+CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON kyc.verification_requests(status);
+CREATE INDEX IF NOT EXISTS idx_verification_requests_user_id ON kyc.verification_requests(user_id);
+
+-- Alter existing documents table to add new columns
+ALTER TABLE IF EXISTS kyc.documents 
+    ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users.users(id),
+    ADD COLUMN IF NOT EXISTS file_type VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS file_size INTEGER,
+    ADD COLUMN IF NOT EXISTS file_url VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS thumbnail_url VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS verification_notes TEXT,
+    ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Create index on user_id for faster document retrieval
+CREATE INDEX IF NOT EXISTS idx_documents_user_id ON kyc.documents(user_id);
+
+-- Add trigger to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for all tables
+CREATE TRIGGER update_verifiers_timestamp
+BEFORE UPDATE ON kyc.verifiers
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_verification_requests_timestamp
+BEFORE UPDATE ON kyc.verification_requests
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_documents_timestamp
+BEFORE UPDATE ON kyc.documents
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- Create a function to update user status when verification status changes
+CREATE OR REPLACE FUNCTION update_user_kyc_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status = 'VERIFIED' AND OLD.status != 'VERIFIED' THEN
+        -- Update the user's KYC status to verified
+        UPDATE users.users SET kyc_status = 'VERIFIED', updated_at = NOW() 
+        WHERE id = NEW.user_id;
+        
+        -- Set the verified_at timestamp
+        NEW.verified_at = NOW();
+    ELSIF NEW.status = 'REJECTED' AND OLD.status != 'REJECTED' THEN
+        -- Update the user's KYC status to rejected
+        UPDATE users.users SET kyc_status = 'REJECTED', updated_at = NOW() 
+        WHERE id = NEW.user_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to update user KYC status
+CREATE TRIGGER update_user_kyc_status_trigger
+BEFORE UPDATE ON kyc.verification_requests
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status)
+EXECUTE FUNCTION update_user_kyc_status();
