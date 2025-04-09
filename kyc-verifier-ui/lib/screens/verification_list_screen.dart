@@ -82,6 +82,9 @@ class _VerificationListScreenState extends State<VerificationListScreen> {
           _errorMessage = 'Failed to load verification requests: $e';
           _isLoading = false;
         });
+        
+        // Log the error for debugging
+        debugPrint('Error loading verification requests: $e');
       }
     }
   }

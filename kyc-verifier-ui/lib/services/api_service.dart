@@ -14,6 +14,7 @@ class ApiService {
   
   ApiService(this._authService) {
     _baseUrl = dotenv.get('API_URL', fallback: 'http://localhost:8080/api');
+    debugPrint('API URL: $_baseUrl');
   }
   
   // Helper method to get headers with auth token
@@ -28,8 +29,17 @@ class ApiService {
   // Handle HTTP errors
   void _handleError(http.Response response) {
     if (response.statusCode >= 400) {
-      final error = json.decode(response.body);
-      throw Exception(error['message'] ?? 'API Error: ${response.statusCode}');
+      try {
+        final error = json.decode(response.body);
+        throw Exception(error['message'] ?? 'API Error: ${response.statusCode}');
+      } catch (e) {
+        // If JSON parsing fails, return the raw response or status code
+        if (response.body.isNotEmpty) {
+          throw Exception('API Error (${response.statusCode}): ${response.body}');
+        } else {
+          throw Exception('API Error: ${response.statusCode}');
+        }
+      }
     }
   }
   
@@ -57,15 +67,36 @@ class ApiService {
       queryParameters: queryParams,
     );
     
-    final response = await http.get(
-      uri,
-      headers: await _getHeaders(),
-    );
+    debugPrint('Fetching verification requests from: $uri');
     
-    _handleError(response);
-    
-    final List<dynamic> data = json.decode(response.body)['data'];
-    return data.map((item) => VerificationRequest.fromJson(item)).toList();
+    try {
+      final response = await http.get(
+        uri,
+        headers: await _getHeaders(),
+      );
+      
+      debugPrint('Response status code: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+      
+      _handleError(response);
+      
+      final responseJson = json.decode(response.body);
+      if (responseJson['data'] == null) {
+        debugPrint('Warning: Response does not contain a "data" field');
+        // If the response doesn't have a data field, try to parse the response directly
+        if (responseJson is List) {
+          return responseJson.map((item) => VerificationRequest.fromJson(item)).toList();
+        } else {
+          throw Exception('Unexpected response format: missing "data" field');
+        }
+      }
+      
+      final List<dynamic> data = responseJson['data'];
+      return data.map((item) => VerificationRequest.fromJson(item)).toList();
+    } catch (e) {
+      debugPrint('Error fetching verification requests: $e');
+      rethrow;
+    }
   }
   
   // Get verification request by ID

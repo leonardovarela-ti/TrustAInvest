@@ -257,7 +257,10 @@ func main() {
 			responseRequests = append(responseRequests, convertVerificationRequestToResponse(req))
 		}
 
-		respondWithJSON(w, http.StatusOK, responseRequests)
+		// Wrap in a data field as expected by the client
+		respondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"data": responseRequests,
+		})
 	})).Methods("GET")
 
 	// Get verification request by ID
