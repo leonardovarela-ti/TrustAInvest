@@ -1,0 +1,133 @@
+services:
+  postgres:
+    image: postgres:14
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_USER: trustainvest
+      POSTGRES_PASSWORD: trustainvest
+      POSTGRES_DB: trustainvest
+    volumes:
+      - ../scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ../migrations:/docker-entrypoint-initdb.d/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trustainvest"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  redis:
+    image: redis:6
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "14566:4566"
+    environment:
+      - SERVICES=s3,dynamodb,cognito,apigateway,lambda,sqs,sns,kms
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - AWS_DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - EDGE_PORT=4566
+    volumes:
+      - ../localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../scripts/init-localstack.sh:/docker-entrypoint-initdb.d/init-localstack.sh
+      - ../init-localstack.sh:/docker-entrypoint-initdb.d/init-kyc-resources.sh
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  user-registration-service:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.registration
+    ports:
+      - "18086:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - AWS_ENDPOINT=http://localstack:14566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KYC_QUEUE_URL=http://localstack:14566/000000000000/kyc-queue
+      - KYC_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:kyc-topic
+      - NOTIFICATION_QUEUE_URL=http://localstack:14566/000000000000/notification-queue
+      - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
+      - KMS_KEY_ID=alias/trustainvest-key
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  kyc-worker:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.kyc-worker
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - AWS_ENDPOINT=http://localstack:14566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KYC_QUEUE_URL=http://localstack:14566/000000000000/kyc-queue
+      - KYC_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:kyc-topic
+      - NOTIFICATION_QUEUE_URL=http://localstack:14566/000000000000/notification-queue
+      - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
+      - KMS_KEY_ID=alias/trustainvest-key
+      - KYC_PROVIDER_URL=https://example.com/kyc-api
+      - KYC_PROVIDER_API_KEY=test-api-key
+      - WORKER_POOL_SIZE=3
+      - WORKER_BATCH_SIZE=10
+      - WORKER_POLL_INTERVAL_SECONDS=5
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+    name: test-network

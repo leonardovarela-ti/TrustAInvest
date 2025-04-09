@@ -104,7 +104,7 @@ func processPendingRequests(ctx context.Context) error {
 	// Fetch pending KYC requests
 	rows, err := db.Query(ctx, `
 		SELECT id, user_id, status, created_at, processed_at, 
-		       completed_at, document_ids, verification_method, 
+		       completed_at, document_ids, request_data, 
 		       rejection_reason
 		FROM kyc.verification_requests
 		WHERE status = $1
@@ -119,19 +119,27 @@ func processPendingRequests(ctx context.Context) error {
 	var requests []KYCRequest
 	for rows.Next() {
 		var req KYCRequest
-		log.Printf("Requests: %v", &req.ID)
 		var documentIDs []string
+		var requestData map[string]interface{}
 
 		if err := rows.Scan(
 			&req.ID, &req.UserID, &req.Status, &req.CreatedAt,
 			&req.ProcessedAt, &req.CompletedAt, &documentIDs,
-			&req.VerificationMethod, &req.RejectionReason,
+			&requestData, &req.RejectionReason,
 		); err != nil {
 			log.Printf("Error scanning KYC request: %v", err)
 			continue
 		}
 
 		req.DocumentIDs = documentIDs
+
+		// Extract verification method from request data if available
+		if method, ok := requestData["verification_method"].(string); ok {
+			req.VerificationMethod = method
+		} else {
+			req.VerificationMethod = "STANDARD" // Default method
+		}
+
 		requests = append(requests, req)
 	}
 
@@ -202,7 +210,7 @@ func processKYCRequest(ctx context.Context, req KYCRequest) error {
 	} else {
 		// Update KYC request to rejected
 		if _, err := db.Exec(ctx, `
-			UPDATE users.kyc_requests
+			UPDATE kyc.verification_requests
 			SET status = $1, completed_at = $2, rejection_reason = $3
 			WHERE id = $4
 		`, KYCStatusRejected, completedAt, verificationResult.Reason, req.ID); err != nil {

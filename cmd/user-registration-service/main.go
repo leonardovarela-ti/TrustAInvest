@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -324,6 +325,34 @@ func verifyEmail(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error activating user account"})
+		return
+	}
+
+	// Create KYC verification request
+	kycRequestID := uuid.New().String()
+	requestData := map[string]interface{}{
+		"user_id":      userID,
+		"request_type": "IDENTITY_VERIFICATION",
+		"source":       "EMAIL_VERIFICATION",
+	}
+
+	// Convert requestData to JSON
+	requestDataJSON, err := json.Marshal(requestData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating KYC verification request"})
+		return
+	}
+
+	_, err = tx.Exec(context.Background(), `
+		INSERT INTO kyc.verification_requests (
+			id, user_id, status, request_data, provider, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6
+		)
+	`, kycRequestID, userID, "PENDING", requestDataJSON, "DEFAULT_PROVIDER", time.Now())
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating KYC verification request"})
 		return
 	}
 

@@ -192,7 +192,7 @@ func createUser(c *gin.Context) {
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
 	`, id, input.Username, input.Email, input.PhoneNumber, input.FirstName,
-		input.LastName, input.DateOfBirth, input.RiskProfile, "PENDING", true)
+		input.LastName, input.DateOfBirth, input.RiskProfile, "PENDING", false)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
