@@ -141,6 +141,20 @@ echo -e "${GREEN}KYC verification request found in the database!${NC}"
 echo -e "${YELLOW}KYC verification request details:${NC}"
 docker-compose -f docker-compose.test.yml exec postgres psql -U trustainvest -d trustainvest -c "SELECT id, user_id, status, created_at, request_data FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'"
 
+# Step 6: Verify that first_name is included in the KYC verification request data
+echo -e "${YELLOW}Step 6: Checking if first_name is included in KYC verification request data...${NC}"
+FIRST_NAME_CHECK=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT request_data->>'first_name' FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'")
+
+# Check if first_name is present and not empty
+if ! echo "$FIRST_NAME_CHECK" | grep -q "John"; then
+  echo -e "${RED}first_name field is missing or empty in the KYC verification request data.${NC}"
+  docker-compose -f docker-compose.test.yml exec postgres psql -U trustainvest -d trustainvest -c "SELECT request_data FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'"
+  docker-compose -f docker-compose.test.yml down
+  exit 1
+fi
+
+echo -e "${GREEN}first_name field is present in the KYC verification request data!${NC}"
+
 # Test completed successfully
 echo -e "${GREEN}All tests passed successfully!${NC}"
 

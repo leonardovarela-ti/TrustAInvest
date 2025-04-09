@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -129,7 +130,29 @@ func main() {
 func registerUser(c *gin.Context) {
 	var user User
 	if err := c.ShouldBindJSON(&user); err != nil {
+		// Check for specific field validation errors and provide user-friendly messages
+		errStr := err.Error()
+		if strings.Contains(errStr, "User.FirstName") && strings.Contains(errStr, "required") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "First name cannot be empty"})
+			return
+		}
+		if strings.Contains(errStr, "User.LastName") && strings.Contains(errStr, "required") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Last name cannot be empty"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Additional check for whitespace-only first_name
+	if len(strings.TrimSpace(user.FirstName)) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "First name cannot be empty"})
+		return
+	}
+
+	// Additional check for whitespace-only last_name
+	if len(strings.TrimSpace(user.LastName)) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Last name cannot be empty"})
 		return
 	}
 
@@ -294,6 +317,7 @@ func verifyEmail(c *gin.Context) {
 	`, input.Token).Scan(&userID, &expiresAt)
 
 	if err != nil {
+		log.Printf("Error finding verification token %s: %v", input.Token, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid or expired verification token"})
 		return
 	}
@@ -328,12 +352,51 @@ func verifyEmail(c *gin.Context) {
 		return
 	}
 
-	// Create KYC verification request
+	// Fetch user information for KYC verification
+	var firstName, lastName, email, phoneNumber string
+	var dateOfBirth time.Time
+	var street, city, state, zipCode, country string
+
+	err = tx.QueryRow(context.Background(), `
+		SELECT first_name, last_name, email, phone_number, date_of_birth,
+		       street, city, state, zip_code, country
+		FROM users.users
+		WHERE id = $1
+	`, userID).Scan(
+		&firstName, &lastName, &email, &phoneNumber, &dateOfBirth,
+		&street, &city, &state, &zipCode, &country,
+	)
+
+	if err != nil {
+		log.Printf("Error fetching user information for ID %s: %v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching user information"})
+		return
+	}
+
+	// Ensure required fields are not empty
+	if len(strings.TrimSpace(firstName)) == 0 {
+		firstName = "Unknown" // Provide a default value if empty
+	}
+	if len(strings.TrimSpace(lastName)) == 0 {
+		lastName = "Unknown" // Provide a default value if empty
+	}
+
+	// Create KYC verification request with complete user information
 	kycRequestID := uuid.New().String()
 	requestData := map[string]interface{}{
-		"user_id":      userID,
-		"request_type": "IDENTITY_VERIFICATION",
-		"source":       "EMAIL_VERIFICATION",
+		"user_id":       userID,
+		"request_type":  "IDENTITY_VERIFICATION",
+		"source":        "EMAIL_VERIFICATION",
+		"first_name":    firstName,
+		"last_name":     lastName,
+		"email":         email,
+		"phone":         phoneNumber,
+		"date_of_birth": dateOfBirth.Format("2006-01-02"),
+		"address_line1": street,
+		"city":          city,
+		"state":         state,
+		"postal_code":   zipCode,
+		"country":       country,
 	}
 
 	// Convert requestData to JSON
@@ -352,6 +415,7 @@ func verifyEmail(c *gin.Context) {
 	`, kycRequestID, userID, "PENDING", requestDataJSON, "DEFAULT_PROVIDER", time.Now())
 
 	if err != nil {
+		log.Printf("Error creating KYC verification request for user %s: %v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating KYC verification request"})
 		return
 	}
@@ -514,6 +578,22 @@ func checkEmail(c *gin.Context) {
 // Validation helper functions
 func validateUser(user User) []ValidationError {
 	var errors []ValidationError
+
+	// Validate first name
+	if len(strings.TrimSpace(user.FirstName)) == 0 {
+		errors = append(errors, ValidationError{
+			Field:   "first_name",
+			Message: "First name cannot be empty",
+		})
+	}
+
+	// Validate last name
+	if len(strings.TrimSpace(user.LastName)) == 0 {
+		errors = append(errors, ValidationError{
+			Field:   "last_name",
+			Message: "Last name cannot be empty",
+		})
+	}
 
 	// Validate username
 	if !isValidUsername(user.Username) {

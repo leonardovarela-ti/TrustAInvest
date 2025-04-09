@@ -232,11 +232,24 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 	// Build query
 	query := `
 		SELECT 
-			vr.id, vr.user_id, vr.first_name, vr.last_name, vr.email, vr.phone,
-			vr.date_of_birth, vr.address_line1, vr.address_line2, vr.city, vr.state,
-			vr.postal_code, vr.country, vr.additional_info, vr.status, vr.rejection_reason,
-			vr.verifier_id, vr.verified_at, vr.created_at, vr.updated_at,
-			(SELECT COUNT(*) FROM kyc.documents WHERE request_id = vr.id) as document_count
+			vr.id, vr.user_id, 
+			vr.request_data->>'first_name' as first_name, 
+			vr.request_data->>'last_name' as last_name, 
+			vr.request_data->>'email' as email, 
+			vr.request_data->>'phone' as phone,
+			(vr.request_data->>'date_of_birth')::date as date_of_birth, 
+			vr.request_data->>'address_line1' as address_line1, 
+			vr.request_data->>'address_line2' as address_line2, 
+			vr.request_data->>'city' as city, 
+			vr.request_data->>'state' as state,
+			vr.request_data->>'postal_code' as postal_code, 
+			vr.request_data->>'country' as country, 
+			vr.request_data->>'additional_info' as additional_info, 
+			vr.status, vr.rejection_reason,
+			vr.provider_request_id as verifier_id, 
+			vr.completed_at as verified_at, 
+			vr.created_at, vr.updated_at,
+			(SELECT COUNT(*) FROM kyc.documents WHERE verification_request_id = vr.id) as document_count
 		FROM kyc.verification_requests vr
 		WHERE 1=1
 	`
@@ -253,7 +266,9 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 
 	// Add search filter
 	if search != "" {
-		query += " AND (vr.first_name ILIKE $" + strconv.Itoa(argCount) + " OR vr.last_name ILIKE $" + strconv.Itoa(argCount) + " OR vr.email ILIKE $" + strconv.Itoa(argCount) + ")"
+		query += " AND (vr.request_data->>'first_name' ILIKE $" + strconv.Itoa(argCount) +
+			" OR vr.request_data->>'last_name' ILIKE $" + strconv.Itoa(argCount) +
+			" OR vr.request_data->>'email' ILIKE $" + strconv.Itoa(argCount) + ")"
 		args = append(args, "%"+search+"%")
 		argCount++
 	}
@@ -273,24 +288,26 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 	var requests []*models.VerificationRequest
 	for rows.Next() {
 		var req models.VerificationRequest
-		var phone, addressLine2, additionalInfo, rejectionReason sql.NullString
-		var verifierID, documentCount sql.NullInt64
+		var firstName, lastName, email, phone, addressLine1, addressLine2, city, state, postalCode, country, additionalInfo, rejectionReason sql.NullString
+		var verifierID sql.NullString
 		var verifiedAt, updatedAt sql.NullTime
+		var documentCount sql.NullInt64
+		var dateOfBirthStr sql.NullString
 
 		err := rows.Scan(
 			&req.ID,
 			&req.UserID,
-			&req.FirstName,
-			&req.LastName,
-			&req.Email,
+			&firstName,
+			&lastName,
+			&email,
 			&phone,
-			&req.DateOfBirth,
-			&req.AddressLine1,
+			&dateOfBirthStr,
+			&addressLine1,
 			&addressLine2,
-			&req.City,
-			&req.State,
-			&req.PostalCode,
-			&req.Country,
+			&city,
+			&state,
+			&postalCode,
+			&country,
 			&additionalInfo,
 			&req.Status,
 			&rejectionReason,
@@ -303,6 +320,63 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 
 		if err != nil {
 			return nil, err
+		}
+
+		// Handle required string fields that might be NULL
+		if firstName.Valid {
+			req.FirstName = firstName.String
+		} else {
+			req.FirstName = "" // or set to a default value if needed
+		}
+
+		if lastName.Valid {
+			req.LastName = lastName.String
+		} else {
+			req.LastName = "" // or set to a default value if needed
+		}
+
+		if email.Valid {
+			req.Email = email.String
+		} else {
+			req.Email = "" // or set to a default value if needed
+		}
+
+		if addressLine1.Valid {
+			req.AddressLine1 = addressLine1.String
+		} else {
+			req.AddressLine1 = "" // or set to a default value if needed
+		}
+
+		if city.Valid {
+			req.City = city.String
+		} else {
+			req.City = "" // or set to a default value if needed
+		}
+
+		if state.Valid {
+			req.State = state.String
+		} else {
+			req.State = "" // or set to a default value if needed
+		}
+
+		if postalCode.Valid {
+			req.PostalCode = postalCode.String
+		} else {
+			req.PostalCode = "" // or set to a default value if needed
+		}
+
+		if country.Valid {
+			req.Country = country.String
+		} else {
+			req.Country = "" // or set to a default value if needed
+		}
+
+		// Parse date of birth
+		if dateOfBirthStr.Valid && dateOfBirthStr.String != "" {
+			dob, err := time.Parse("2006-01-02", dateOfBirthStr.String)
+			if err == nil {
+				req.DateOfBirth = dob
+			}
 		}
 
 		// Handle nullable fields
@@ -327,8 +401,11 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 		}
 
 		if verifierID.Valid {
-			verID := uuid.MustParse(string(verifierID.Int64))
-			req.VerifierID = &verID
+			// Try to parse as UUID
+			verID, err := uuid.Parse(verifierID.String)
+			if err == nil {
+				req.VerifierID = &verID
+			}
 		}
 
 		if verifiedAt.Valid {
@@ -352,34 +429,48 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 // GetVerificationRequestByID gets a verification request by ID
 func (r *KYCVerifierRepository) GetVerificationRequestByID(id uuid.UUID) (*models.VerificationRequest, error) {
 	var req models.VerificationRequest
-	var phone, addressLine2, additionalInfo, rejectionReason sql.NullString
+	var firstName, lastName, email, phone, addressLine1, addressLine2, city, state, postalCode, country, additionalInfo, rejectionReason sql.NullString
 	var verifierID sql.NullString
 	var verifiedAt, updatedAt sql.NullTime
 	var documentCount int
+	var dateOfBirthStr sql.NullString
 
 	err := r.DB.QueryRow(`
 		SELECT 
-			vr.id, vr.user_id, vr.first_name, vr.last_name, vr.email, vr.phone,
-			vr.date_of_birth, vr.address_line1, vr.address_line2, vr.city, vr.state,
-			vr.postal_code, vr.country, vr.additional_info, vr.status, vr.rejection_reason,
-			vr.verifier_id, vr.verified_at, vr.created_at, vr.updated_at,
-			(SELECT COUNT(*) FROM kyc.documents WHERE request_id = vr.id) as document_count
+			vr.id, vr.user_id, 
+			vr.request_data->>'first_name' as first_name, 
+			vr.request_data->>'last_name' as last_name, 
+			vr.request_data->>'email' as email, 
+			vr.request_data->>'phone' as phone,
+			(vr.request_data->>'date_of_birth')::date as date_of_birth, 
+			vr.request_data->>'address_line1' as address_line1, 
+			vr.request_data->>'address_line2' as address_line2, 
+			vr.request_data->>'city' as city, 
+			vr.request_data->>'state' as state,
+			vr.request_data->>'postal_code' as postal_code, 
+			vr.request_data->>'country' as country, 
+			vr.request_data->>'additional_info' as additional_info, 
+			vr.status, vr.rejection_reason,
+			vr.provider_request_id as verifier_id, 
+			vr.completed_at as verified_at, 
+			vr.created_at, vr.updated_at,
+			(SELECT COUNT(*) FROM kyc.documents WHERE verification_request_id = vr.id) as document_count
 		FROM kyc.verification_requests vr
 		WHERE vr.id = $1
 	`, id).Scan(
 		&req.ID,
 		&req.UserID,
-		&req.FirstName,
-		&req.LastName,
-		&req.Email,
+		&firstName,
+		&lastName,
+		&email,
 		&phone,
-		&req.DateOfBirth,
-		&req.AddressLine1,
+		&dateOfBirthStr,
+		&addressLine1,
 		&addressLine2,
-		&req.City,
-		&req.State,
-		&req.PostalCode,
-		&req.Country,
+		&city,
+		&state,
+		&postalCode,
+		&country,
 		&additionalInfo,
 		&req.Status,
 		&rejectionReason,
@@ -392,6 +483,63 @@ func (r *KYCVerifierRepository) GetVerificationRequestByID(id uuid.UUID) (*model
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Handle required string fields that might be NULL
+	if firstName.Valid {
+		req.FirstName = firstName.String
+	} else {
+		req.FirstName = "" // or set to a default value if needed
+	}
+
+	if lastName.Valid {
+		req.LastName = lastName.String
+	} else {
+		req.LastName = "" // or set to a default value if needed
+	}
+
+	if email.Valid {
+		req.Email = email.String
+	} else {
+		req.Email = "" // or set to a default value if needed
+	}
+
+	if addressLine1.Valid {
+		req.AddressLine1 = addressLine1.String
+	} else {
+		req.AddressLine1 = "" // or set to a default value if needed
+	}
+
+	if city.Valid {
+		req.City = city.String
+	} else {
+		req.City = "" // or set to a default value if needed
+	}
+
+	if state.Valid {
+		req.State = state.String
+	} else {
+		req.State = "" // or set to a default value if needed
+	}
+
+	if postalCode.Valid {
+		req.PostalCode = postalCode.String
+	} else {
+		req.PostalCode = "" // or set to a default value if needed
+	}
+
+	if country.Valid {
+		req.Country = country.String
+	} else {
+		req.Country = "" // or set to a default value if needed
+	}
+
+	// Parse date of birth
+	if dateOfBirthStr.Valid && dateOfBirthStr.String != "" {
+		dob, err := time.Parse("2006-01-02", dateOfBirthStr.String)
+		if err == nil {
+			req.DateOfBirth = dob
+		}
 	}
 
 	// Handle nullable fields
@@ -416,8 +564,11 @@ func (r *KYCVerifierRepository) GetVerificationRequestByID(id uuid.UUID) (*model
 	}
 
 	if verifierID.Valid {
-		verID := uuid.MustParse(verifierID.String)
-		req.VerifierID = &verID
+		// Try to parse as UUID
+		verID, err := uuid.Parse(verifierID.String)
+		if err == nil {
+			req.VerifierID = &verID
+		}
 	}
 
 	if verifiedAt.Valid {

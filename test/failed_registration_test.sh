@@ -13,7 +13,7 @@ echo -e "${YELLOW}Starting failed registration test...${NC}"
 echo -e "${YELLOW}Step 1: Starting the system...${NC}"
 docker-compose -f docker-compose.test.yml down -v # Ensure clean state
 echo -e "${YELLOW}Starting services (this may take a minute)...${NC}"
-docker-compose -f docker-compose.test.yml up -d
+docker-compose -f docker-compose.test.yml up -d --build
 
 # Wait for services to be ready
 echo -e "${YELLOW}Waiting for services to be ready...${NC}"
@@ -151,8 +151,76 @@ else
   exit 1
 fi
 
-# Test Case 5: Successful registration but check for duplicate username
-echo -e "${YELLOW}Test Case 5: Register a user, then try to register with the same username...${NC}"
+# Test Case 5: Empty first_name or last_name
+echo -e "${YELLOW}Test Case 5: Attempting registration with empty first_name...${NC}"
+REGISTER_RESPONSE=$(curl -s -X POST http://localhost:18086/api/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john.doe@example.com",
+    "password": "securePassword123!",
+    "phone_number": "+15551234567",
+    "first_name": "",
+    "last_name": "Doe",
+    "date_of_birth": "1990-01-15",
+    "address": {
+      "street": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip_code": "10001",
+      "country": "USA"
+    },
+    "risk_profile": "MODERATE",
+    "accept_terms": true
+  }')
+
+echo "Registration response: $REGISTER_RESPONSE"
+
+# Check if registration failed as expected
+if echo "$REGISTER_RESPONSE" | grep -q "First name cannot be empty"; then
+  echo -e "${GREEN}Test passed: Registration failed as expected due to empty first_name${NC}"
+else
+  echo -e "${RED}Test failed: Registration should have failed but succeeded or failed with wrong error message${NC}"
+  docker-compose -f docker-compose.test.yml down
+  exit 1
+fi
+
+# Test with whitespace-only first_name
+echo -e "${YELLOW}Test Case 5b: Attempting registration with whitespace-only first_name...${NC}"
+REGISTER_RESPONSE=$(curl -s -X POST http://localhost:18086/api/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john.doe@example.com",
+    "password": "securePassword123!",
+    "phone_number": "+15551234567",
+    "first_name": "   ",
+    "last_name": "Doe",
+    "date_of_birth": "1990-01-15",
+    "address": {
+      "street": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip_code": "10001",
+      "country": "USA"
+    },
+    "risk_profile": "MODERATE",
+    "accept_terms": true
+  }')
+
+echo "Registration response: $REGISTER_RESPONSE"
+
+# Check if registration failed as expected
+if echo "$REGISTER_RESPONSE" | grep -q "First name cannot be empty"; then
+  echo -e "${GREEN}Test passed: Registration failed as expected due to whitespace-only first_name${NC}"
+else
+  echo -e "${RED}Test failed: Registration should have failed but succeeded or failed with wrong error message${NC}"
+  docker-compose -f docker-compose.test.yml down
+  exit 1
+fi
+
+# Test Case 6: Successful registration but check for duplicate username
+echo -e "${YELLOW}Test Case 6: Register a user, then try to register with the same username...${NC}"
 
 # First registration
 REGISTER_RESPONSE=$(curl -s -X POST http://localhost:18086/api/v1/register \
