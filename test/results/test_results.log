@@ -1,5 +1,5 @@
 TrustAInvest Integration Test Results
-Run at: Tue Apr  8 20:08:49 CDT 2025
+Run at: Wed Apr  9 01:19:23 CDT 2025
 =======================================
 
 Running test: failed_registration_test.sh
@@ -12,33 +12,33 @@ Running test: failed_registration_test.sh
  Network test-network  Creating
  Network test-network  Created
  Container test-redis-1  Creating
- Container test-localstack-1  Creating
  Container test-postgres-1  Creating
+ Container test-localstack-1  Creating
  Container test-localstack-1  Created
  Container test-redis-1  Created
  Container test-postgres-1  Created
- Container test-kyc-worker-1  Creating
  Container test-user-registration-service-1  Creating
+ Container test-kyc-worker-1  Creating
  Container test-user-registration-service-1  Created
  Container test-kyc-worker-1  Created
+ Container test-redis-1  Starting
  Container test-localstack-1  Starting
  Container test-postgres-1  Starting
- Container test-redis-1  Starting
  Container test-redis-1  Started
- Container test-postgres-1  Started
  Container test-localstack-1  Started
+ Container test-postgres-1  Started
  Container test-localstack-1  Waiting
- Container test-postgres-1  Waiting
  Container test-postgres-1  Waiting
  Container test-redis-1  Waiting
  Container test-localstack-1  Waiting
- Container test-redis-1  Healthy
+ Container test-postgres-1  Waiting
  Container test-postgres-1  Healthy
  Container test-postgres-1  Healthy
- Container test-localstack-1  Healthy
- Container test-user-registration-service-1  Starting
  Container test-localstack-1  Healthy
  Container test-kyc-worker-1  Starting
+ Container test-redis-1  Healthy
+ Container test-localstack-1  Healthy
+ Container test-user-registration-service-1  Starting
  Container test-kyc-worker-1  Started
  Container test-user-registration-service-1  Started
 [0;33mWaiting for services to be ready...[0m
@@ -57,7 +57,7 @@ Registration response: {"errors":[{"field":"password","message":"Password must b
 Verification response: {"error":"Invalid or expired verification token"}
 [0;32mTest passed: Verification failed as expected due to invalid token[0m
 [0;33mTest Case 5: Register a user, then try to register with the same username...[0m
-First registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"49209cc2-1085-4a08-b388-39147815fd05"}
+First registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"97378a7f-0e32-4bff-991a-1e3cc0c762a5"}
 Second registration response: {"error":"Username already taken"}
 [0;32mTest passed: Second registration failed as expected due to duplicate username[0m
 [0;32mAll failed registration tests passed successfully![0m
@@ -70,14 +70,14 @@ Second registration response: {"error":"Username already taken"}
  Container test-user-registration-service-1  Stopped
  Container test-user-registration-service-1  Removing
  Container test-user-registration-service-1  Removed
- Container test-postgres-1  Stopping
- Container test-redis-1  Stopping
  Container test-localstack-1  Stopping
+ Container test-redis-1  Stopping
+ Container test-postgres-1  Stopping
  Container test-postgres-1  Stopped
  Container test-postgres-1  Removing
- Container test-postgres-1  Removed
  Container test-redis-1  Stopped
  Container test-redis-1  Removing
+ Container test-postgres-1  Removed
  Container test-redis-1  Removed
  Container test-localstack-1  Stopped
  Container test-localstack-1  Removing
@@ -97,24 +97,24 @@ Running test: integration_test.sh
 [0;33mStarting services (this may take a minute)...[0m
  Network test-network  Creating
  Network test-network  Created
+ Container test-redis-1  Creating
  Container test-postgres-1  Creating
  Container test-localstack-1  Creating
- Container test-redis-1  Creating
- Container test-redis-1  Created
  Container test-localstack-1  Created
+ Container test-redis-1  Created
  Container test-postgres-1  Created
  Container test-kyc-worker-1  Creating
  Container test-user-registration-service-1  Creating
  Container test-kyc-worker-1  Created
  Container test-user-registration-service-1  Created
- Container test-localstack-1  Starting
- Container test-postgres-1  Starting
  Container test-redis-1  Starting
+ Container test-postgres-1  Starting
+ Container test-localstack-1  Starting
  Container test-redis-1  Started
  Container test-localstack-1  Started
  Container test-postgres-1  Started
- Container test-localstack-1  Waiting
  Container test-postgres-1  Waiting
+ Container test-localstack-1  Waiting
  Container test-localstack-1  Waiting
  Container test-postgres-1  Waiting
  Container test-redis-1  Waiting
@@ -122,34 +122,34 @@ Running test: integration_test.sh
  Container test-redis-1  Healthy
  Container test-postgres-1  Healthy
  Container test-localstack-1  Healthy
- Container test-user-registration-service-1  Starting
- Container test-localstack-1  Healthy
  Container test-kyc-worker-1  Starting
+ Container test-localstack-1  Healthy
+ Container test-user-registration-service-1  Starting
  Container test-kyc-worker-1  Started
  Container test-user-registration-service-1  Started
 [0;33mWaiting for services to be ready...[0m
 [0;33mChecking if user-registration-service is up...[0m
 [0;32mUser registration service is up![0m
 [0;33mStep 2: Registering a user...[0m
-Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"987e7836-5700-44b7-9950-52683d598697"}
+Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"95560925-4be4-40df-b90c-964e38d7a842"}
 [0;32mUser registered successfully![0m
 [0;33mStep 3: Extracting verification token from logs...[0m
-[0;32mExtracted verification token: c310e8a6-851a-4c01-a378-10efdd6a0a9c[0m
+[0;32mExtracted verification token: c86ca869-53ae-4ab9-a982-eec2a76544a1[0m
 [0;33mStep 4: Verifying email with token...[0m
 Verification response: {"message":"Email verified successfully. Your account is now active."}
 [0;32mEmail verified successfully![0m
 [0;33mStep 5: Checking KYC verification request in database...[0m
 [0;32mKYC verification request found in the database![0m
 [0;33mKYC verification request details:[0m
-                  id                  |               user_id                | status  |          created_at          |                                                         request_data                                                         
---------------------------------------+--------------------------------------+---------+------------------------------+------------------------------------------------------------------------------------------------------------------------------
- 66d26b20-34ae-4ed0-9ebd-05f0468f0192 | 987e7836-5700-44b7-9950-52683d598697 | PENDING | 2025-04-09 01:09:27.27706+00 | {"source": "EMAIL_VERIFICATION", "user_id": "987e7836-5700-44b7-9950-52683d598697", "request_type": "IDENTITY_VERIFICATION"}
+                  id                  |               user_id                | status  |          created_at           |                                                         request_data                                                         
+--------------------------------------+--------------------------------------+---------+-------------------------------+------------------------------------------------------------------------------------------------------------------------------
+ 22fbf4b5-95f9-4427-bd10-677bb1de1533 | 95560925-4be4-40df-b90c-964e38d7a842 | PENDING | 2025-04-09 06:20:02.366962+00 | {"source": "EMAIL_VERIFICATION", "user_id": "95560925-4be4-40df-b90c-964e38d7a842", "request_type": "IDENTITY_VERIFICATION"}
 (1 row)
 
 [0;32mAll tests passed successfully![0m
 [0;33mCleaning up...[0m
- Container test-kyc-worker-1  Stopping
  Container test-user-registration-service-1  Stopping
+ Container test-kyc-worker-1  Stopping
  Container test-kyc-worker-1  Stopped
  Container test-kyc-worker-1  Removing
  Container test-kyc-worker-1  Removed
@@ -157,14 +157,14 @@ Verification response: {"message":"Email verified successfully. Your account is 
  Container test-user-registration-service-1  Removing
  Container test-user-registration-service-1  Removed
  Container test-localstack-1  Stopping
- Container test-postgres-1  Stopping
  Container test-redis-1  Stopping
- Container test-redis-1  Stopped
- Container test-redis-1  Removing
+ Container test-postgres-1  Stopping
  Container test-postgres-1  Stopped
  Container test-postgres-1  Removing
- Container test-redis-1  Removed
  Container test-postgres-1  Removed
+ Container test-redis-1  Stopped
+ Container test-redis-1  Removing
+ Container test-redis-1  Removed
  Container test-localstack-1  Stopped
  Container test-localstack-1  Removing
  Container test-localstack-1  Removed

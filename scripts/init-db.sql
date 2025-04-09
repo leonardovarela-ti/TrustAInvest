@@ -174,7 +174,7 @@ INSERT INTO kyc.verifiers (
 ) VALUES (
     'admin',
     'admin@trustainvest.com',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    '$2a$10$3fVbJvIjYBBi9vj8i/SrCeYrZcyZfuGbQ.G1s67hAs3PuTAbexGQ.',
     'Admin',
     'User',
     'ADMIN'

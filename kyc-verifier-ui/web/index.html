@@ -9,12 +9,15 @@
             font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 0;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .login-container {
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-color: #f5f5f5;
-            color: #333;
         }
         .container {
             text-align: center;
@@ -55,59 +58,592 @@
             text-decoration: none;
             font-weight: bold;
             transition: background-color 0.3s;
+            border: none;
+            cursor: pointer;
         }
         .button:hover {
             background-color: #152a63;
         }
+        
+        /* Dashboard styles */
+        .dashboard {
+            display: none;
+            padding: 0;
+            margin: 0;
+        }
+        .dashboard-header {
+            background-color: #1E3A8A;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-header h1 {
+            color: white;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .dashboard-header .user-info {
+            display: flex;
+            align-items: center;
+        }
+        .dashboard-header .user-info .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #4A90E2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .dashboard-header .user-info .avatar span {
+            color: white;
+            font-weight: bold;
+        }
+        .dashboard-nav {
+            background-color: #f8f9fa;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #ddd;
+        }
+        .dashboard-nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+        }
+        .dashboard-nav ul li {
+            margin-right: 1.5rem;
+        }
+        .dashboard-nav ul li a {
+            color: #333;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 0.5rem 0;
+            border-bottom: 2px solid transparent;
+        }
+        .dashboard-nav ul li a.active {
+            color: #1E3A8A;
+            border-bottom: 2px solid #1E3A8A;
+        }
+        .dashboard-content {
+            padding: 2rem;
+        }
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .stat-card .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 1rem;
+        }
+        .stat-card .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .stat-card .stat-label {
+            color: #666;
+        }
+        .requests-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .requests-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .requests-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .requests-table th, .requests-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .requests-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-verified {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-rejected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-        </div>
-        <h1>KYC Verifier Portal</h1>
-        <p>Welcome to the TrustAInvest KYC Verification Portal. This system allows authorized verifiers to review and process KYC verification requests from customers.</p>
-        <p>Please note that this is a placeholder page. The actual Flutter web application will be available here once it's built and deployed.</p>
-        
-        <div id="login-form" style="margin-top: 20px; text-align: left; background-color: #f8f9fa; padding: 20px; border-radius: 8px; max-width: 300px; margin-left: auto; margin-right: auto;">
-            <h3 style="margin-top: 0; text-align: center;">Login</h3>
-            <div style="margin-bottom: 15px;">
-                <label for="username" style="display: block; margin-bottom: 5px; font-weight: bold;">Username:</label>
-                <input type="text" id="username" value="admin" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+        <div class="container">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
             </div>
-            <div style="margin-bottom: 15px;">
-                <label for="password" style="display: block; margin-bottom: 5px; font-weight: bold;">Password:</label>
-                <input type="password" id="password" value="admin123" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <h1>KYC Verifier Portal</h1>
+            <p>Welcome to the TrustAInvest KYC Verification Portal. This system allows authorized verifiers to review and process KYC verification requests from customers.</p>
+            <p>Please note that this is a placeholder page. The actual Flutter web application will be available here once it's built and deployed.</p>
+            
+            <div id="login-form" style="margin-top: 20px; text-align: left; background-color: #f8f9fa; padding: 20px; border-radius: 8px; max-width: 300px; margin-left: auto; margin-right: auto;">
+                <h3 style="margin-top: 0; text-align: center;">Login</h3>
+                <div style="margin-bottom: 15px;">
+                    <label for="username" style="display: block; margin-bottom: 5px; font-weight: bold;">Username:</label>
+                    <input type="text" id="username" value="admin" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label for="password" style="display: block; margin-bottom: 5px; font-weight: bold;">Password:</label>
+                    <input type="password" id="password" value="admin123" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <button onclick="simulateLogin()" class="button" style="width: 100%;">Login</button>
+                <p id="login-message" style="color: green; margin-top: 10px; text-align: center; display: none;">Login successful!</p>
             </div>
-            <button onclick="simulateLogin()" class="button" style="width: 100%;">Login</button>
-            <p id="login-message" style="color: green; margin-top: 10px; text-align: center; display: none;">Login successful!</p>
         </div>
-        
-        <script>
-            function simulateLogin() {
-                const username = document.getElementById('username').value;
-                const password = document.getElementById('password').value;
-                
-                if (username === 'admin' && password === 'admin123') {
-                    document.getElementById('login-message').style.display = 'block';
-                    document.getElementById('login-message').textContent = 'Login successful!';
-                    document.getElementById('login-message').style.color = 'green';
-                    
-                    // Simulate redirect after successful login
-                    setTimeout(() => {
-                        alert('This is a placeholder UI. In the actual application, you would be redirected to the dashboard.');
-                    }, 1000);
-                } else {
-                    document.getElementById('login-message').style.display = 'block';
-                    document.getElementById('login-message').textContent = 'Invalid username or password!';
-                    document.getElementById('login-message').style.color = 'red';
-                }
-            }
-        </script>
     </div>
+    
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="dashboard">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <h1>KYC Verifier Portal</h1>
+            <div class="user-info">
+                <div class="avatar">
+                    <span>A</span>
+                </div>
+                <div>
+                    <div>Admin</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">Administrator</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="dashboard-nav">
+            <ul>
+                <li><a href="#" class="active">Dashboard</a></li>
+                <li><a href="#">Verification Requests</a></li>
+                <li><a href="#">Verifiers</a></li>
+                <li><a href="#">Profile</a></li>
+                <li><a href="#" onclick="logout()">Logout</a></li>
+            </ul>
+        </div>
+        
+        <!-- Content -->
+        <div class="dashboard-content">
+            <h2>Dashboard</h2>
+            
+            <!-- Statistics -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: rgba(255, 193, 7, 0.2);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffc107" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">Pending Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: rgba(40, 167, 69, 0.2);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-value">45</div>
+                    <div class="stat-label">Verified Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: rgba(220, 53, 69, 0.2);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">Rejected Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: rgba(0, 123, 255, 0.2);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Active Verifiers</div>
+                </div>
+            </div>
+            
+            <!-- Recent Verification Requests -->
+            <div class="requests-container">
+                <div class="requests-header">
+                    <h3 style="margin: 0;">Recent Verification Requests</h3>
+                    <button class="button">View All</button>
+                </div>
+                <table class="requests-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Submitted</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>VR-2025-001</td>
+                            <td>John Smith</td>
+                            <td>john.smith@example.com</td>
+                            <td>Apr 8, 2025</td>
+                            <td><span class="status-badge status-pending">Pending</span></td>
+                            <td><button class="button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">Review</button></td>
+                        </tr>
+                        <tr>
+                            <td>VR-2025-002</td>
+                            <td>Jane Doe</td>
+                            <td>jane.doe@example.com</td>
+                            <td>Apr 7, 2025</td>
+                            <td><span class="status-badge status-verified">Verified</span></td>
+                            <td><button class="button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">View</button></td>
+                        </tr>
+                        <tr>
+                            <td>VR-2025-003</td>
+                            <td>Bob Johnson</td>
+                            <td>bob.johnson@example.com</td>
+                            <td>Apr 7, 2025</td>
+                            <td><span class="status-badge status-rejected">Rejected</span></td>
+                            <td><button class="button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">View</button></td>
+                        </tr>
+                        <tr>
+                            <td>VR-2025-004</td>
+                            <td>Alice Brown</td>
+                            <td>alice.brown@example.com</td>
+                            <td>Apr 6, 2025</td>
+                            <td><span class="status-badge status-pending">Pending</span></td>
+                            <td><button class="button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">Review</button></td>
+                        </tr>
+                        <tr>
+                            <td>VR-2025-005</td>
+                            <td>Charlie Davis</td>
+                            <td>charlie.davis@example.com</td>
+                            <td>Apr 6, 2025</td>
+                            <td><span class="status-badge status-verified">Verified</span></td>
+                            <td><button class="button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">View</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // API base URL
+        const API_BASE_URL = 'http://localhost:8090/api';
+        let authToken = '';
+        let currentUser = null;
+        
+        // Function to handle login
+        async function simulateLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showLoginMessage('Please enter username and password', 'red');
+                return;
+            }
+            
+            try {
+                showLoginMessage('Logging in...', 'blue');
+                
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Invalid credentials');
+                }
+                
+                const data = await response.json();
+                authToken = data.token;
+                currentUser = data.user;
+                
+                showLoginMessage('Login successful!', 'green');
+                
+                // Load dashboard data
+                await loadDashboardData();
+                
+                // Update user info in dashboard
+                updateUserInfo();
+                
+                // Show dashboard after successful login
+                setTimeout(() => {
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('dashboard-screen').style.display = 'block';
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showLoginMessage(error.message || 'Login failed. Please try again.', 'red');
+            }
+        }
+        
+        // Function to show login message
+        function showLoginMessage(message, color) {
+            const loginMessage = document.getElementById('login-message');
+            loginMessage.textContent = message;
+            loginMessage.style.color = color;
+            loginMessage.style.display = 'block';
+        }
+        
+        // Function to update user info in dashboard
+        function updateUserInfo() {
+            if (currentUser) {
+                // Update avatar initial
+                const avatarSpan = document.querySelector('.dashboard-header .avatar span');
+                avatarSpan.textContent = currentUser.firstName ? currentUser.firstName.charAt(0) : 'U';
+                
+                // Update user name and role
+                const userInfoDiv = document.querySelector('.dashboard-header .user-info div');
+                userInfoDiv.innerHTML = `
+                    <div>${currentUser.firstName || ''} ${currentUser.lastName || ''}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">${currentUser.role || 'User'}</div>
+                `;
+            }
+        }
+        
+        // Function to load dashboard data
+        async function loadDashboardData() {
+            try {
+                // Load dashboard statistics
+                await loadDashboardStats();
+                
+                // Load verification requests
+                await loadVerificationRequests();
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                alert('Failed to load dashboard data. Please try again.');
+            }
+        }
+        
+        // Function to load dashboard statistics
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load dashboard statistics');
+                }
+                
+                const data = await response.json();
+                
+                // Update statistics in the UI
+                document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = data.pendingCount || 0;
+                document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = data.verifiedCount || 0;
+                document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = data.rejectedCount || 0;
+                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = data.verifierCount || 0;
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                // Use default values if API call fails
+                document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = '0';
+                document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = '0';
+                document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = '0';
+                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = '0';
+            }
+        }
+        
+        // Function to load verification requests
+        async function loadVerificationRequests() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/verification-requests?page=1&limit=5`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load verification requests');
+                }
+                
+                const data = await response.json();
+                const requests = data.data || [];
+                
+                // Get the table body
+                const tableBody = document.querySelector('.requests-table tbody');
+                
+                // Clear existing rows
+                tableBody.innerHTML = '';
+                
+                if (requests.length === 0) {
+                    // Add a message if no requests
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td colspan="6" style="text-align: center; padding: 20px;">No verification requests found</td>
+                    `;
+                    tableBody.appendChild(row);
+                } else {
+                    // Add rows for each request
+                    requests.forEach(request => {
+                        const row = document.createElement('tr');
+                        
+                        // Format date
+                        const date = new Date(request.createdAt);
+                        const formattedDate = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                        
+                        // Determine status class
+                        let statusClass = 'status-pending';
+                        if (request.status === 'VERIFIED') {
+                            statusClass = 'status-verified';
+                        } else if (request.status === 'REJECTED') {
+                            statusClass = 'status-rejected';
+                        }
+                        
+                        // Determine action button
+                        const actionButton = request.status === 'PENDING' ? 'Review' : 'View';
+                        
+                        row.innerHTML = `
+                            <td>${request.id}</td>
+                            <td>${request.firstName} ${request.lastName}</td>
+                            <td>${request.email}</td>
+                            <td>${formattedDate}</td>
+                            <td><span class="status-badge ${statusClass}">${request.status}</span></td>
+                            <td><button class="button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="viewRequest('${request.id}')">${actionButton}</button></td>
+                        `;
+                        
+                        tableBody.appendChild(row);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading requests:', error);
+                
+                // Show error message in table
+                const tableBody = document.querySelector('.requests-table tbody');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 20px; color: red;">
+                            Failed to load verification requests. Please try again.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // Function to view a specific request
+        function viewRequest(requestId) {
+            alert(`This would navigate to the details page for request ${requestId} in the actual application.`);
+        }
+        
+        // Function to handle logout
+        function logout() {
+            // Clear auth token and user data
+            authToken = '';
+            currentUser = null;
+            
+            // Return to login screen
+            document.getElementById('dashboard-screen').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('login-message').style.display = 'none';
+            
+            // Clear password field
+            document.getElementById('password').value = '';
+        }
+        
+        // Function to handle navigation
+        function navigate(section) {
+            // Remove active class from all nav links
+            document.querySelectorAll('.dashboard-nav a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Add active class to clicked link
+            event.target.classList.add('active');
+            
+            // In a real app, this would navigate to different sections
+            if (section !== 'dashboard') {
+                alert(`This would navigate to the ${section} section in the actual application.`);
+            }
+        }
+        
+        // Add event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listener for Enter key on password field
+            document.getElementById('password').addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    simulateLogin();
+                }
+            });
+            
+            // Add event listeners for navigation links
+            document.querySelectorAll('.dashboard-nav a').forEach(link => {
+                link.addEventListener('click', function(event) {
+                    if (!this.getAttribute('onclick')) {
+                        event.preventDefault();
+                        navigate(this.textContent.toLowerCase());
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

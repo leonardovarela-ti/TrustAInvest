@@ -255,6 +255,7 @@ services:
       - DB_USER=trustainvest
       - DB_PASSWORD=trustainvest
       - DB_NAME=trustainvest
+      - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
