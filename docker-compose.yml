@@ -346,6 +346,20 @@ services:
     networks:
       - backend
 
+  customer-app:
+    build:
+      context: ./customer-app
+      dockerfile: Dockerfile
+    container_name: customer-app
+    ports:
+      - "3001:80"
+    environment:
+      API_BASE_URL: http://user-registration-service:8080
+    depends_on:
+      - user-registration-service
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
