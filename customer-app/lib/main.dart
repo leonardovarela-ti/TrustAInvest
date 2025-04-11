@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
+import 'services/config_service.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/registration_screen.dart';
 import 'utils/theme.dart';
@@ -15,12 +16,17 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: '.env');
   
+  // Initialize config service
+  final configService = ConfigService();
+  await configService.init();
+  
   // Run the app
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         Provider(create: (_) => ApiService()),
+        Provider(create: (_) => configService),
       ],
       child: const MyApp(),
     ),
