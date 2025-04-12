@@ -39,6 +39,9 @@ COPY --chown=flutter:flutter . .
 # Build the web app
 RUN flutter build web --release
 
+# Verify the build was successful
+RUN ls -la build/web
+
 # Final stage
 FROM nginx:alpine
 
@@ -66,6 +69,9 @@ RUN chown -R appuser:appgroup /usr/share/nginx/html /var/cache/nginx /var/log/ng
 # Update permissions for nginx to run as non-root
 RUN touch /var/run/nginx.pid && \
     chown -R appuser:appgroup /var/run/nginx.pid
+
+# Verify the web files are correctly copied
+RUN ls -la /usr/share/nginx/html
 
 # Switch to non-root user
 USER appuser
