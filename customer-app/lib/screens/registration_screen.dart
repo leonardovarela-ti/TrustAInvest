@@ -404,7 +404,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               {'Last Name': _lastNameController.text},
               {'Phone Number': _phoneController.text},
               {'Date of Birth': _dobController.text},
-              {'SSN': '***-**-' + _ssnController.text.substring(_ssnController.text.length - 4)},
+              {'SSN': _ssnController.text.length >= 4 
+                ? '***-**-' + _ssnController.text.substring(_ssnController.text.length - 4)
+                : _ssnController.text.isEmpty ? '***-**-****' : _ssnController.text},
             ],
           ),
           

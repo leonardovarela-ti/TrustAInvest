@@ -1130,6 +1130,7 @@ file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/screens/
 file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/screens/welcome_screen.dart
 file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/services/api_service.dart
 file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/services/auth_service.dart
+file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/services/config_service.dart
 file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/utils/theme.dart
 file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/utils/validators.dart
 file:///Users/leonardovarela/projects/TrustAInvest.com/customer-app/lib/widgets/custom_button.dart
