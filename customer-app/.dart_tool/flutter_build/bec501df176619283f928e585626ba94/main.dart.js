@@ -81799,7 +81799,7 @@ p=A.a6(["Phone Number",p.a.a],j,j)
 o=A.a6(["Date of Birth",o.a.a],j,j)
 n=n.a.a
 g=n.length
-if(g>=4)n="***-**-"+B.c.c6(n,g-4)
+if(g>=4)n="***-**-"+B.c.c6(n,Math.max(0,g-4))
 else if(g===0)n="***-**-****"
 return A.awD(new A.vP(c,B.RW,new A.Sc(e,e,1/0,56),e),A.zN(!0,A.av0(e,A.di(A.b([b,A.j5(new A.rU(f.e,B.Id,e,A.awX(A.b([a,s,a0,A.acq(A.di(A.b([l,B.dx,k,B.bb,h,f.Bj(d,A.b([r,q,p,o,A.a6(["SSN",n],j,j)],i)),f.Bj("Address",A.b([A.a6(["Street",f.cx.a.a],j,j),A.a6(["City",f.cy.a.a],j,j),A.a6(["State",f.db.a.a],j,j),A.a6(["Zip Code",f.dx.a.a],j,j),A.a6(["Country",f.dy.a.a],j,j)],i)),B.bb,A.r2(f.r,!1,f.gacY(),"Submit Registration"),B.cH,A.r2(!1,!0,f.gLR(),"Edit Information")],m),B.av,B.F,B.Y),B.fC)],m),!0),e),1)],m),B.am,B.F,B.Y),f.d),!0))},
 a1x(){var s,r,q,p=null,o=t.p,n=A.b([],o)

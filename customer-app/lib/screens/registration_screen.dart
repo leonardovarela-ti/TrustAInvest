@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -405,7 +406,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               {'Phone Number': _phoneController.text},
               {'Date of Birth': _dobController.text},
               {'SSN': _ssnController.text.length >= 4 
-                ? '***-**-' + _ssnController.text.substring(_ssnController.text.length - 4)
+                ? '***-**-' + _ssnController.text.substring(math.max(0, _ssnController.text.length - 4))
                 : _ssnController.text.isEmpty ? '***-**-****' : _ssnController.text},
             ],
           ),
