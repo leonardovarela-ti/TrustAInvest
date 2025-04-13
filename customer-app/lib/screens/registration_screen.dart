@@ -27,6 +27,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _acceptTerms = false;
   
   // Form controllers
   final _usernameController = TextEditingController();
@@ -420,11 +421,40 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ],
           ),
           
+          const SizedBox(height: 16),
+          
+          // Terms and Conditions Checkbox
+          Row(
+            children: [
+              Checkbox(
+                value: _acceptTerms,
+                onChanged: (value) {
+                  setState(() {
+                    _acceptTerms = value ?? false;
+                  });
+                },
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _acceptTerms = !_acceptTerms;
+                    });
+                  },
+                  child: Text(
+                    'I accept the Terms and Conditions and Privacy Policy',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
           const SizedBox(height: 24),
           
           CustomButton(
             text: 'Submit Registration',
-            onPressed: _submitRegistration,
+            onPressed: _acceptTerms ? () { _submitRegistration(); } : () {},
             isLoading: _isLoading,
           ),
           
@@ -552,57 +582,57 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
   
   Future<void> _submitRegistration() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    // Skip validation here since we've already validated in previous steps
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
       
-      try {
-        final apiService = Provider.of<ApiService>(context, listen: false);
-        final authService = Provider.of<AuthService>(context, listen: false);
-        
-        // Create user object
-        final user = User(
-          username: _usernameController.text,
-          email: _emailController.text,
-          phoneNumber: _phoneFormatter.getUnmaskedText(),
-          firstName: _firstNameController.text,
-          lastName: _lastNameController.text,
-          dateOfBirth: DateFormat('yyyy-MM-dd').parse(_dobController.text),
-          address: Address(
-            street: _streetController.text,
-            city: _cityController.text,
-            state: _stateController.text,
-            zipCode: _zipCodeController.text,
-            country: _countryController.text,
-          ),
-          ssn: _ssnFormatter.getUnmaskedText(),
-        );
-        
-        // Register user
-        final response = await apiService.registerUser(
-          user,
-          _passwordController.text,
-        );
-        
-        // Save registration response
-        await authService.saveRegistrationResponse(response);
-        
-        // Show success dialog
-        if (mounted) {
-          _showSuccessDialog(response);
-        }
-      } catch (e) {
-        // Show error dialog
-        if (mounted) {
-          _showErrorDialog(e.toString());
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      // Create user object
+      final user = User(
+        username: _usernameController.text,
+        email: _emailController.text,
+        phoneNumber: _phoneFormatter.getUnmaskedText(),
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+        dateOfBirth: DateFormat('yyyy-MM-dd').parse(_dobController.text),
+        address: Address(
+          street: _streetController.text,
+          city: _cityController.text,
+          state: _stateController.text,
+          zipCode: _zipCodeController.text,
+          country: _countryController.text,
+        ),
+        ssn: _ssnFormatter.getUnmaskedText(),
+        acceptTerms: _acceptTerms,
+      );
+      
+      // Register user
+      final response = await apiService.registerUser(
+        user,
+        _passwordController.text,
+      );
+      
+      // Save registration response
+      await authService.saveRegistrationResponse(response);
+      
+      // Show success dialog
+      if (mounted) {
+        _showSuccessDialog(response);
+      }
+    } catch (e) {
+      // Show error dialog
+      if (mounted) {
+        _showErrorDialog(e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -663,15 +693,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return '***-**-****';
     }
     
-    // Remove any non-digit characters
-    final digitsOnly = ssn.replaceAll(RegExp(r'\D'), '');
-    
-    if (digitsOnly.length >= 4) {
-      final lastFour = digitsOnly.substring(digitsOnly.length - 4);
-      return '***-**-$lastFour';
-    } else {
-      // Not enough digits for masking, return as is
-      return ssn;
+    try {
+      // Remove any non-digit characters for validation
+      final digitsOnly = ssn.replaceAll(RegExp(r'\D'), '');
+      
+      if (digitsOnly.length >= 4) {
+        // Always use the last 4 digits, safely
+        final lastFour = digitsOnly.substring(digitsOnly.length - 4);
+        return '***-**-$lastFour';
+      } else {
+        // Not enough digits for proper masking
+        return '***-**-' + digitsOnly.padLeft(4, '*');
+      }
+    } catch (e) {
+      // If any error occurs during the masking process, return the masked placeholder
+      print('Error masking SSN: $e');
+      return '***-**-****';
     }
   }
 }

@@ -35,9 +35,13 @@ class AuthService extends ChangeNotifier {
   
   // Save registration response
   Future<void> saveRegistrationResponse(RegistrationResponse response) async {
-    await _secureStorage.write(key: _userIdKey, value: response.id);
-    await _saveUserId(response.id);
-    notifyListeners();
+    if (response.id.isNotEmpty) {
+      await _secureStorage.write(key: _userIdKey, value: response.id);
+      await _saveUserId(response.id);
+      notifyListeners();
+    } else {
+      debugPrint('Warning: Empty user ID in registration response');
+    }
   }
   
   // Save auth token

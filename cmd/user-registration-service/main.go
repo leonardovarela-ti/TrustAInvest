@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -78,6 +79,13 @@ func main() {
 
 	// Set up Gin router
 	router := gin.Default()
+
+	// Configure CORS middleware
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	router.Use(cors.New(config))
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {

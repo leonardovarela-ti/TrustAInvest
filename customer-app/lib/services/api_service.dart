@@ -29,7 +29,18 @@ class ApiService {
       );
 
       if (response.statusCode == 201) {
-        return RegistrationResponse.fromJson(jsonDecode(response.body));
+        try {
+          final responseData = jsonDecode(response.body);
+          print('Registration response: $responseData');
+          return RegistrationResponse.fromJson(responseData);
+        } catch (parseError) {
+          print('Error parsing registration response: $parseError');
+          print('Response body: ${response.body}');
+          throw ApiException(
+            statusCode: 500,
+            message: 'Error parsing server response: $parseError',
+          );
+        }
       } else {
         final errorData = jsonDecode(response.body);
         throw ApiException(
@@ -41,6 +52,7 @@ class ApiService {
       if (e is ApiException) {
         rethrow;
       }
+      print('Registration error: $e');
       throw ApiException(
         statusCode: 500,
         message: 'Network error: ${e.toString()}',

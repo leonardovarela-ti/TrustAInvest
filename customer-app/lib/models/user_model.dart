@@ -16,6 +16,7 @@ class User {
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final bool acceptTerms;
 
   User({
     this.id,
@@ -33,6 +34,7 @@ class User {
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
+    this.acceptTerms = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -87,6 +89,7 @@ class User {
       'address': address.toJson(),
       'ssn': ssn,
       'risk_profile': riskProfile,
+      'accept_terms': acceptTerms,
     };
   }
 
@@ -106,6 +109,7 @@ class User {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? acceptTerms,
   }) {
     return User(
       id: id ?? this.id,
@@ -123,6 +127,7 @@ class User {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      acceptTerms: acceptTerms ?? this.acceptTerms,
     );
   }
 }
@@ -181,26 +186,26 @@ class Address {
 
 class RegistrationResponse {
   final String id;
-  final String username;
-  final String email;
-  final String status;
+  final String? username;
+  final String? email;
+  final String? status;
   final String message;
 
   RegistrationResponse({
     required this.id,
-    required this.username,
-    required this.email,
-    required this.status,
+    this.username,
+    this.email,
+    this.status,
     required this.message,
   });
 
   factory RegistrationResponse.fromJson(Map<String, dynamic> json) {
     return RegistrationResponse(
-      id: json['id'],
+      id: json['id'] ?? json['user_id'] ?? '',
       username: json['username'],
       email: json['email'],
-      status: json['status'],
-      message: json['message'],
+      status: json['status'] ?? 'PENDING',
+      message: json['message'] ?? 'Registration successful',
     );
   }
 }

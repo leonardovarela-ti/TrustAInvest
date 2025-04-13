@@ -29,19 +29,20 @@
 </head>
 <body>
   <script>
-    window.addEventListener('load', function(ev) {
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
+    {{flutter_js}}
+  {{flutter_build_config}}
+
+  window.addEventListener('load', function (ev) {
+    _flutter.loader.load({
+      serviceWorker: {
+        serviceWorkerVersion: '{{flutter_service_worker_version}}',
+      },
+      onEntrypointLoaded: async function(engineInitializer) {
+        let appRunner = await engineInitializer.initializeEngine();
+        await appRunner.runApp();
+      }
     });
+  });
   </script>
 </body>
 </html>

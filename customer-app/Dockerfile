@@ -42,8 +42,8 @@ RUN flutter clean
 
 RUN flutter pub get
 
-# Build the web app with no-cache
-RUN flutter build web --profile
+# Build the web app
+RUN flutter build web --release
 
 # Verify the build was successful
 RUN ls -la build/web
