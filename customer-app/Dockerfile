@@ -36,8 +36,14 @@ RUN flutter pub get
 # Copy the rest of the application
 COPY --chown=flutter:flutter . .
 
-# Build the web app
-RUN flutter build web --release
+# clean the flutter app from the container
+RUN flutter clean
+#Get dependencies again
+
+RUN flutter pub get
+
+# Build the web app with no-cache
+RUN flutter build web --profile
 
 # Verify the build was successful
 RUN ls -la build/web

@@ -405,9 +405,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               {'Last Name': _lastNameController.text},
               {'Phone Number': _phoneController.text},
               {'Date of Birth': _dobController.text},
-              {'SSN': _ssnController.text.length >= 4 
-                ? '***-**-' + _ssnController.text.substring(math.max(0, _ssnController.text.length - 4))
-                : _ssnController.text.isEmpty ? '***-**-****' : _ssnController.text},
+              {'SSN': _getMaskedSSN(_ssnController.text)},
             ],
           ),
           
@@ -657,5 +655,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         ],
       ),
     );
+  }
+  
+  // Helper method to safely mask SSN
+  String _getMaskedSSN(String ssn) {
+    if (ssn.isEmpty) {
+      return '***-**-****';
+    }
+    
+    // Remove any non-digit characters
+    final digitsOnly = ssn.replaceAll(RegExp(r'\D'), '');
+    
+    if (digitsOnly.length >= 4) {
+      final lastFour = digitsOnly.substring(digitsOnly.length - 4);
+      return '***-**-$lastFour';
+    } else {
+      // Not enough digits for masking, return as is
+      return ssn;
+    }
   }
 }
