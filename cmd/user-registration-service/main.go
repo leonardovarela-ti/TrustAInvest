@@ -307,6 +307,12 @@ func verifyEmail(c *gin.Context) {
 		return
 	}
 
+	// Sanitize the token by removing any non-alphanumeric or non-hyphen characters
+	sanitizedToken := regexp.MustCompile(`[^a-zA-Z0-9\-]`).ReplaceAllString(input.Token, "")
+
+	// Log the original and sanitized tokens for debugging
+	log.Printf("Original token: %s, Sanitized token: %s", input.Token, sanitizedToken)
+
 	// Begin transaction
 	tx, err := db.Begin(context.Background())
 	if err != nil {
@@ -322,7 +328,7 @@ func verifyEmail(c *gin.Context) {
 		SELECT user_id, expires_at
 		FROM users.email_verifications
 		WHERE token = $1 AND verified_at IS NULL
-	`, input.Token).Scan(&userID, &expiresAt)
+	`, sanitizedToken).Scan(&userID, &expiresAt)
 
 	if err != nil {
 		log.Printf("Error finding verification token %s: %v", input.Token, err)
@@ -341,7 +347,7 @@ func verifyEmail(c *gin.Context) {
 		UPDATE users.email_verifications
 		SET verified_at = $1
 		WHERE token = $2
-	`, time.Now(), input.Token)
+	`, time.Now(), sanitizedToken)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating verification status"})
