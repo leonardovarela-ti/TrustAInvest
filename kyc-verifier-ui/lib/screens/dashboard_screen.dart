@@ -36,38 +36,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       
-      // Get counts for different statuses
-      final pendingRequests = await apiService.getVerificationRequests(
-        status: 'PENDING',
-        page: 1,
-        limit: 1,
-      );
-      
-      final verifiedRequests = await apiService.getVerificationRequests(
-        status: 'VERIFIED',
-        page: 1,
-        limit: 1,
-      );
-      
-      final rejectedRequests = await apiService.getVerificationRequests(
-        status: 'REJECTED',
-        page: 1,
-        limit: 1,
-      );
-      
-      final expiredRequests = await apiService.getVerificationRequests(
-        status: 'EXPIRED',
-        page: 1,
-        limit: 1,
-      );
+      // Get dashboard statistics from the API
+      final statsData = await apiService.getDashboardStats();
       
       if (mounted) {
         setState(() {
           _stats = {
-            'pending': pendingRequests.length,
-            'verified': verifiedRequests.length,
-            'rejected': rejectedRequests.length,
-            'expired': expiredRequests.length,
+            'pending': statsData['pending_count'] ?? 0,
+            'verified': statsData['verified_count'] ?? 0,
+            'rejected': statsData['rejected_count'] ?? 0,
+            'expired': statsData['expired_count'] ?? 0,
           };
           _isLoading = false;
         });

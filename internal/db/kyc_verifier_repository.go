@@ -426,6 +426,22 @@ func (r *KYCVerifierRepository) GetVerificationRequests(status string, search st
 	return requests, nil
 }
 
+// GetVerificationRequestCountByStatus gets the count of verification requests with a specific status
+func (r *KYCVerifierRepository) GetVerificationRequestCountByStatus(status string) (int, error) {
+	var count int
+	err := r.DB.QueryRow(`
+		SELECT COUNT(*) 
+		FROM kyc.verification_requests 
+		WHERE status = $1
+	`, status).Scan(&count)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // GetVerificationRequestByID gets a verification request by ID
 func (r *KYCVerifierRepository) GetVerificationRequestByID(id uuid.UUID) (*models.VerificationRequest, error) {
 	var req models.VerificationRequest

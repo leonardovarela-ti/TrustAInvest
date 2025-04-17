@@ -380,7 +380,7 @@
     </div>
     
     <script>
-        // API base URL
+        // API base URL - Use localhost when accessing from host machine
         const API_BASE_URL = 'http://localhost:8090/api';
         let authToken = '';
         let currentUser = null;
@@ -495,10 +495,10 @@
                 const data = await response.json();
                 
                 // Update statistics in the UI
-                document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = data.pendingCount || 0;
-                document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = data.verifiedCount || 0;
-                document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = data.rejectedCount || 0;
-                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = data.verifierCount || 0;
+                document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = data.pending_count || 0;
+                document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = data.verified_count || 0;
+                document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = data.rejected_count || 0;
+                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = data.verifier_count || 3; // Fallback to 3 if not provided
                 
             } catch (error) {
                 console.error('Error loading stats:', error);

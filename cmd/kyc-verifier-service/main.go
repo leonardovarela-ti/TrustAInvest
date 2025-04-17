@@ -362,6 +362,54 @@ func main() {
 		})
 	})).Methods("GET")
 
+	// Dashboard statistics endpoint
+	apiRouter.HandleFunc("/dashboard/stats", authenticateJWT(jwtSecret, func(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims) {
+		log.Printf("Dashboard statistics endpoint called by user: %s", claims["username"])
+
+		// Get counts for different statuses
+		pendingCount, err := kycRepo.GetVerificationRequestCountByStatus("PENDING")
+		if err != nil {
+			log.Printf("Error getting pending count: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to get statistics")
+			return
+		}
+		log.Printf("Pending count: %d", pendingCount)
+
+		verifiedCount, err := kycRepo.GetVerificationRequestCountByStatus("VERIFIED")
+		if err != nil {
+			log.Printf("Error getting verified count: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to get statistics")
+			return
+		}
+		log.Printf("Verified count: %d", verifiedCount)
+
+		rejectedCount, err := kycRepo.GetVerificationRequestCountByStatus("REJECTED")
+		if err != nil {
+			log.Printf("Error getting rejected count: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to get statistics")
+			return
+		}
+		log.Printf("Rejected count: %d", rejectedCount)
+
+		expiredCount, err := kycRepo.GetVerificationRequestCountByStatus("EXPIRED")
+		if err != nil {
+			log.Printf("Error getting expired count: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to get statistics")
+			return
+		}
+		log.Printf("Expired count: %d", expiredCount)
+
+		// Return the counts
+		stats := map[string]interface{}{
+			"pending_count":  pendingCount,
+			"verified_count": verifiedCount,
+			"rejected_count": rejectedCount,
+			"expired_count":  expiredCount,
+		}
+		log.Printf("Returning statistics: %v", stats)
+		respondWithJSON(w, http.StatusOK, stats)
+	})).Methods("GET")
+
 	// Health check endpoint
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
