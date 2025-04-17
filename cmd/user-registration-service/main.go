@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"golang.org/x/crypto/bcrypt"
@@ -103,6 +105,16 @@ func main() {
 		v1.POST("/resend-verification", resendVerification)
 		v1.POST("/check-username", checkUsername)
 		v1.POST("/check-email", checkEmail)
+
+		// Auth routes
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", loginHandler)
+			auth.GET("/me", authMiddleware(), getCurrentUserHandler)
+
+			// Register additional auth routes for compatibility with the test
+			auth.POST("", loginHandler) // This will handle /api/v1/auth with POST method
+		}
 	}
 
 	// Start server
@@ -728,4 +740,248 @@ func sendVerificationEmail(email, token string) {
 	log.Println(emailContent)
 
 	// In production, we would call a notification service or email provider API here
+}
+
+// LoginRequest represents the login request payload
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// LoginResponse represents the login response
+type LoginResponse struct {
+	Token     string `json:"token"`
+	ExpiresIn int64  `json:"expires_in"`
+	UserID    string `json:"user_id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+}
+
+// Claims represents the JWT claims
+type Claims struct {
+	UserID   string `json:"sub"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+// loginHandler handles user login
+func loginHandler(c *gin.Context) {
+	var request LoginRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get user by username
+	var user struct {
+		ID           string
+		Username     string
+		Email        string
+		PasswordHash []byte
+		IsActive     bool
+		KYCStatus    string
+	}
+
+	err := db.QueryRow(context.Background(), `
+		SELECT id, username, email, password_hash, is_active, kyc_status
+		FROM users.users
+		WHERE username = $1
+	`, request.Username).Scan(
+		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.IsActive, &user.KYCStatus,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is inactive"})
+		return
+	}
+
+	// Check if user's KYC is verified
+	if user.KYCStatus != "VERIFIED" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is pending KYC verification"})
+		return
+	}
+
+	// Generate JWT token
+	token, err := generateToken(user.ID, user.Username, user.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	// Return token and user info
+	c.JSON(http.StatusOK, LoginResponse{
+		Token:     token,
+		ExpiresIn: 3600, // 1 hour
+		UserID:    user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+	})
+}
+
+// generateToken generates a new JWT token
+func generateToken(userID, username, email string) (string, error) {
+	// In a real implementation, this would use a secure secret key
+	secretKey := "your-secret-key"
+
+	expirationTime := time.Now().Add(1 * time.Hour)
+	claims := &Claims{
+		UserID:   userID,
+		Username: username,
+		Email:    email,
+		Role:     "USER",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "trustainvest.com",
+			Subject:   userID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+// authMiddleware creates a middleware for authentication
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get the Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+			c.Abort()
+			return
+		}
+
+		// Check if the header starts with "Bearer "
+		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
+			c.Abort()
+			return
+		}
+
+		// Extract the token
+		tokenString := authHeader[7:]
+
+		// Validate the token
+		claims, err := validateToken(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.Abort()
+			return
+		}
+
+		// Set the user ID in the context
+		c.Set("userID", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("email", claims.Email)
+		c.Set("role", claims.Role)
+
+		c.Next()
+	}
+}
+
+// validateToken validates a JWT token
+func validateToken(tokenString string) (*Claims, error) {
+	// In a real implementation, this would use a secure secret key
+	secretKey := "your-secret-key"
+
+	claims := &Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	return claims, nil
+}
+
+// getCurrentUserHandler returns the current authenticated user
+func getCurrentUserHandler(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Get user by ID
+	var user struct {
+		ID          string    `json:"id"`
+		Username    string    `json:"username"`
+		Email       string    `json:"email"`
+		FirstName   string    `json:"first_name"`
+		LastName    string    `json:"last_name"`
+		PhoneNumber string    `json:"phone_number"`
+		DateOfBirth time.Time `json:"date_of_birth"`
+		Street      string    `json:"street"`
+		City        string    `json:"city"`
+		State       string    `json:"state"`
+		ZipCode     string    `json:"zip_code"`
+		Country     string    `json:"country"`
+		RiskProfile string    `json:"risk_profile"`
+		KYCStatus   string    `json:"kyc_status"`
+		CreatedAt   time.Time `json:"created_at"`
+	}
+
+	err := db.QueryRow(context.Background(), `
+		SELECT id, username, email, first_name, last_name, phone_number, 
+		       date_of_birth, street, city, state, zip_code, country,
+		       risk_profile, kyc_status, created_at
+		FROM users.users
+		WHERE id = $1 AND is_active = true
+	`, userID).Scan(
+		&user.ID, &user.Username, &user.Email, &user.FirstName, &user.LastName, &user.PhoneNumber,
+		&user.DateOfBirth, &user.Street, &user.City, &user.State, &user.ZipCode, &user.Country,
+		&user.RiskProfile, &user.KYCStatus, &user.CreatedAt,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user information"})
+		return
+	}
+
+	// Return user info
+	c.JSON(http.StatusOK, gin.H{
+		"id":           user.ID,
+		"username":     user.Username,
+		"email":        user.Email,
+		"first_name":   user.FirstName,
+		"last_name":    user.LastName,
+		"phone_number": user.PhoneNumber,
+		"kyc_status":   user.KYCStatus,
+		"risk_profile": user.RiskProfile,
+		"created_at":   user.CreatedAt,
+		"address": gin.H{
+			"street":   user.Street,
+			"city":     user.City,
+			"state":    user.State,
+			"zip_code": user.ZipCode,
+			"country":  user.Country,
+		},
+	})
 }
