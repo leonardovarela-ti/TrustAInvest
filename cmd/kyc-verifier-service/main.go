@@ -308,6 +308,12 @@ func main() {
 			return
 		}
 
+		// Validate status
+		if req.Status != "VERIFIED" && req.Status != "REJECTED" && req.Status != "PENDING" {
+			respondWithError(w, http.StatusBadRequest, "Invalid status value. Must be VERIFIED, REJECTED, or PENDING")
+			return
+		}
+
 		// Get verifier ID from claims
 		verifierIDStr, ok := claims["sub"].(string)
 		if !ok {
@@ -315,13 +321,29 @@ func main() {
 			return
 		}
 
+		verifierID, err := uuid.Parse(verifierIDStr)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Invalid verifier ID format")
+			return
+		}
+
+		// If status is REJECTED, make sure rejection reason is provided
+		if req.Status == "REJECTED" && (req.RejectionReason == nil || *req.RejectionReason == "") {
+			respondWithError(w, http.StatusBadRequest, "Rejection reason is required when status is REJECTED")
+			return
+		}
+
 		// Update verification request status
-		// This is a simplified implementation - in a real app, you would have a repository method for this
-		// and handle things like transaction management, validation, etc.
 		log.Printf("Updating verification request %s to status %s by verifier %s",
 			requestID.String(), req.Status, verifierIDStr)
 
-		// For now, just return a success response
+		err = kycRepo.UpdateVerificationRequestStatus(requestID, req.Status, verifierID, req.RejectionReason)
+		if err != nil {
+			log.Printf("Error updating verification request status: %v", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to update verification request status")
+			return
+		}
+
 		respondWithJSON(w, http.StatusOK, map[string]string{"message": "Status updated successfully"})
 	})).Methods("PATCH")
 

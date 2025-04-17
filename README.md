@@ -11,12 +11,14 @@ TrustAInvest is a comprehensive financial platform that provides investment and 
   - [Getting the Code](#getting-the-code)
   - [Building the Project](#building-the-project)
   - [Running the System](#running-the-system)
+  - [Rebuilding the System](#rebuilding-the-system)
 - [API Documentation](#api-documentation)
   - [User Registration](#user-registration)
   - [Email Verification](#email-verification)
   - [KYC Verification](#kyc-verification)
 - [Running Tests](#running-tests)
   - [Integration Tests](#integration-tests)
+  - [KYC Status Update Fix](#kyc-status-update-fix)
   - [KYC Verifier Testing](#kyc-verifier-testing)
 - [Deployment](#deployment)
 - [Understanding the Codebase](#understanding-the-codebase)
@@ -126,6 +128,41 @@ To view logs for a specific service:
 make logs SERVICE=user-registration-service
 ```
 
+### Rebuilding the System
+
+If you need to completely rebuild the system from scratch (for example, when setting up a new environment or troubleshooting issues), you can use the provided rebuild scripts:
+
+#### Interactive Rebuild
+
+The interactive rebuild script will guide you through the process and offer to run integration tests:
+
+```bash
+./scripts/rebuild-all.sh
+```
+
+This script:
+1. Stops and removes all containers, volumes, and networks
+2. Rebuilds all Docker images from scratch (with `--no-cache`)
+3. Starts all services
+4. Performs health checks to ensure everything is working
+5. Optionally runs integration tests
+
+#### Automated Rebuild
+
+For CI/CD pipelines or automated environments, use the non-interactive version:
+
+```bash
+./scripts/rebuild-all-auto.sh
+```
+
+To also run integration tests automatically:
+
+```bash
+./scripts/rebuild-all-auto.sh --run-tests
+```
+
+The automated script performs the same steps as the interactive one but exits with an error code if any step fails, making it suitable for automated environments.
+
 ## API Documentation
 
 ### User Registration
@@ -213,31 +250,80 @@ A successful response will look like:
 
 For KYC verification staff, the KYC Verifier Service provides an API for managing verification requests:
 
-1. Login with admin credentials:
+1. Login with admin credentials to obtain a JWT token:
    ```bash
    curl -X POST http://localhost:8090/api/auth/login \
      -H "Content-Type: application/json" \
      -d '{"username":"admin","password":"admin123"}'
    ```
 
-2. List verification requests:
+   Note: The system comes with a default admin user (username: "admin", password: "admin123") that is created during database initialization.
+
+   This will return a response containing a JWT token:
+   ```json
+   {
+     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   }
+   ```
+
+   Store this token for use in subsequent requests:
+   ```bash
+   export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   ```
+
+2. List verification requests to find the ID of the request you want to verify:
    ```bash
    curl -X GET http://localhost:8090/api/verification-requests \
-     -H "Authorization: Bearer {jwt_token}"
+     -H "Authorization: Bearer $TOKEN"
    ```
 
-3. Get a specific verification request:
-   ```bash
-   curl -X GET http://localhost:8090/api/verification-requests/{id} \
-     -H "Authorization: Bearer {jwt_token}"
+   This will return a list of verification requests:
+   ```json
+   {
+     "data": [
+       {
+         "id": "550e8400-e29b-41d4-a716-446655440000",
+         "userId": "123e4567-e89b-12d3-a456-426614174000",
+         "firstName": "John",
+         "lastName": "Doe",
+         "email": "john.doe@example.com",
+         "status": "PENDING",
+         "createdAt": "2025-04-09T12:00:00Z"
+       },
+       ...
+     ]
+   }
    ```
 
-4. Update verification status:
+3. Get details of a specific verification request:
    ```bash
-   curl -X PATCH http://localhost:8090/api/verification-requests/{id}/status \
+   curl -X GET http://localhost:8090/api/verification-requests/550e8400-e29b-41d4-a716-446655440000 \
+     -H "Authorization: Bearer $TOKEN"
+   ```
+
+   This will return detailed information about the verification request.
+
+4. Verify a customer verification request by updating its status to "VERIFIED":
+   ```bash
+   curl -X PATCH http://localhost:8090/api/verification-requests/550e8400-e29b-41d4-a716-446655440000/status \
      -H "Content-Type: application/json" \
-     -H "Authorization: Bearer {jwt_token}" \
+     -H "Authorization: Bearer $TOKEN" \
      -d '{"status":"VERIFIED"}'
+   ```
+
+   A successful response will look like:
+   ```json
+   {
+     "message": "Status updated successfully"
+   }
+   ```
+
+   You can also reject a verification request by setting the status to "REJECTED" and providing a reason:
+   ```bash
+   curl -X PATCH http://localhost:8090/api/verification-requests/550e8400-e29b-41d4-a716-446655440000/status \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"status":"REJECTED", "rejection_reason":"Documentation does not match provided information"}'
    ```
 
 ## Running Tests
@@ -269,6 +355,35 @@ The test runner generates detailed reports in the `test/results/` directory, inc
 - HTML report with test results and statistics
 
 For more information about the tests, see the [test README](test/README.md).
+
+### KYC Status Update Fix
+
+There was an issue with the KYC verification system where the user's KYC status in the `users.users` table was not being updated to "VERIFIED" after a successful KYC verification through the API. This issue has been fixed with:
+
+1. An enhanced `UpdateVerificationRequestStatus` function in the KYC verifier repository
+2. A fixed database trigger to ensure the user's KYC status is updated correctly
+
+To apply the fix:
+
+```bash
+# Make the script executable
+chmod +x scripts/fix-kyc-status-update.sh
+
+# Run the script
+./scripts/fix-kyc-status-update.sh
+```
+
+To verify the fix with integration tests:
+
+```bash
+# Make the script executable
+chmod +x scripts/fix-and-test-kyc-status.sh
+
+# Run the script
+./scripts/fix-and-test-kyc-status.sh
+```
+
+For more details about the issue and the fix, see the [KYC Status Update Fix documentation](docs/kyc-status-update-fix.md).
 
 ### KYC Verifier Testing
 

@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -225,6 +226,218 @@ func (r *KYCVerifierRepository) ChangePassword(id uuid.UUID, newPassword string)
 	`, string(hashedPassword), id)
 
 	return err
+}
+
+// UpdateVerificationRequestStatus updates the status of a verification request
+func (r *KYCVerifierRepository) UpdateVerificationRequestStatus(requestID uuid.UUID, status string, verifierID uuid.UUID, rejectionReason *string) error {
+	now := time.Now()
+
+	// Start a transaction
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// Defer rollback in case of error
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p) // re-throw panic after rollback
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Log the transaction start
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Starting transaction for updating verification request status')"); err != nil {
+		return fmt.Errorf("failed to log transaction start: %w", err)
+	}
+
+	// Log the request ID and status
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Updating request ID: " + requestID.String() + " to status: " + status + "')"); err != nil {
+		return fmt.Errorf("failed to log request details: %w", err)
+	}
+
+	// Get the user ID for the verification request
+	var userID uuid.UUID
+	err = tx.QueryRow("SELECT user_id FROM kyc.verification_requests WHERE id = $1", requestID).Scan(&userID)
+	if err != nil {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'Error getting user_id: " + err.Error() + "')")
+		return fmt.Errorf("failed to get user_id: %w", err)
+	}
+
+	// Log the user ID
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'User ID associated with request: " + userID.String() + "')"); err != nil {
+		return fmt.Errorf("failed to log user ID: %w", err)
+	}
+
+	// Get the current status of the verification request
+	var currentStatus string
+	err = tx.QueryRow("SELECT status FROM kyc.verification_requests WHERE id = $1", requestID).Scan(&currentStatus)
+	if err != nil {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'Error getting current status: " + err.Error() + "')")
+		return fmt.Errorf("failed to get current status: %w", err)
+	}
+
+	// Log the current status
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Current status before update: " + currentStatus + "')"); err != nil {
+		return fmt.Errorf("failed to log current status: %w", err)
+	}
+
+	// Get the current KYC status of the user
+	var currentUserKYCStatus string
+	err = tx.QueryRow("SELECT kyc_status FROM users.users WHERE id = $1", userID).Scan(&currentUserKYCStatus)
+	if err != nil {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'Error getting current user KYC status: " + err.Error() + "')")
+		return fmt.Errorf("failed to get current user KYC status: %w", err)
+	}
+
+	// Log the current user KYC status
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Current user KYC status before update: " + currentUserKYCStatus + "')"); err != nil {
+		return fmt.Errorf("failed to log current user KYC status: %w", err)
+	}
+
+	// Update the verification request
+	var query string
+	var args []interface{}
+
+	if status == "VERIFIED" {
+		query = `
+			UPDATE kyc.verification_requests
+			SET status = $1, provider_request_id = $2, updated_at = $3, completed_at = $4
+			WHERE id = $5
+		`
+		args = []interface{}{status, verifierID, now, now, requestID}
+	} else if status == "REJECTED" {
+		query = `
+			UPDATE kyc.verification_requests
+			SET status = $1, provider_request_id = $2, updated_at = $3, completed_at = $4, rejection_reason = $5
+			WHERE id = $6
+		`
+		args = []interface{}{status, verifierID, now, now, rejectionReason, requestID}
+	} else {
+		query = `
+			UPDATE kyc.verification_requests
+			SET status = $1, provider_request_id = $2, updated_at = $3
+			WHERE id = $4
+		`
+		args = []interface{}{status, verifierID, now, requestID}
+	}
+
+	// Log the query being executed
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Executing verification request update query')"); err != nil {
+		return fmt.Errorf("failed to log query execution: %w", err)
+	}
+
+	// Execute the update
+	result, err := tx.Exec(query, args...)
+	if err != nil {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'Error updating verification request: " + err.Error() + "')")
+		return fmt.Errorf("failed to update verification request: %w", err)
+	}
+
+	// Log the number of rows affected
+	rowsAffected, _ := result.RowsAffected()
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Rows affected by verification request update: " + strconv.FormatInt(rowsAffected, 10) + "')"); err != nil {
+		return fmt.Errorf("failed to log rows affected: %w", err)
+	}
+
+	// Directly update the user's KYC status in the same transaction
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Directly updating users.users table with KYC status: " + status + "')"); err != nil {
+		return fmt.Errorf("failed to log user update: %w", err)
+	}
+
+	// Update the user's KYC status
+	updateUserQuery := `
+		UPDATE users.users 
+		SET kyc_status = $1, updated_at = $2 
+		WHERE id = $3
+	`
+	userUpdateResult, err := tx.Exec(updateUserQuery, status, now, userID)
+	if err != nil {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'Error updating user KYC status: " + err.Error() + "')")
+		return fmt.Errorf("failed to update user KYC status: %w", err)
+	}
+
+	// Log the number of rows affected by the user update
+	userRowsAffected, _ := userUpdateResult.RowsAffected()
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Rows affected by user update: " + strconv.FormatInt(userRowsAffected, 10) + "')"); err != nil {
+		return fmt.Errorf("failed to log user rows affected: %w", err)
+	}
+
+	// Verify the update was successful
+	var finalUserKYCStatus string
+	err = tx.QueryRow("SELECT kyc_status FROM users.users WHERE id = $1", userID).Scan(&finalUserKYCStatus)
+	if err != nil {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'Error checking final user KYC status: " + err.Error() + "')")
+		return fmt.Errorf("failed to verify user KYC status update: %w", err)
+	}
+
+	// Log the final user KYC status
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Final user KYC status after update: " + finalUserKYCStatus + "')"); err != nil {
+		return fmt.Errorf("failed to log final user KYC status: %w", err)
+	}
+
+	// Check if the update was actually applied
+	if finalUserKYCStatus != status {
+		_, _ = tx.Exec("SELECT pg_notify('kyc_log', 'WARNING: User KYC status was not updated correctly. Expected: " + status + ", Got: " + finalUserKYCStatus + "')")
+		return fmt.Errorf("user KYC status was not updated correctly. Expected: %s, Got: %s", status, finalUserKYCStatus)
+	}
+
+	// Log before commit
+	if _, err = tx.Exec("SELECT pg_notify('kyc_log', 'Committing transaction')"); err != nil {
+		return fmt.Errorf("failed to log commit: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'Error committing transaction: " + err.Error() + "')")
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Log after commit (this will be in a new transaction)
+	_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'Transaction committed successfully')")
+
+	// Double-check that the user's KYC status was updated correctly after the transaction
+	var finalUserKYCStatusAfterCommit string
+	err = r.DB.QueryRow("SELECT kyc_status FROM users.users WHERE id = $1", userID).Scan(&finalUserKYCStatusAfterCommit)
+	if err != nil {
+		_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'Error checking final user KYC status after commit: " + err.Error() + "')")
+		return fmt.Errorf("failed to verify user KYC status update after commit: %w", err)
+	}
+
+	// Log the final user KYC status after commit
+	_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'Final user KYC status after commit: " + finalUserKYCStatusAfterCommit + "')")
+
+	// If the status is still not updated, try a direct update outside the transaction
+	if finalUserKYCStatusAfterCommit != status {
+		_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'WARNING: User KYC status still not updated after commit. Attempting direct update.')")
+
+		// Direct update as a last resort
+		_, err = r.DB.Exec("UPDATE users.users SET kyc_status = $1, updated_at = $2 WHERE id = $3", status, time.Now(), userID)
+		if err != nil {
+			_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'Error in direct update of user KYC status: " + err.Error() + "')")
+			return fmt.Errorf("failed in direct update of user KYC status: %w", err)
+		}
+
+		// Verify the direct update
+		err = r.DB.QueryRow("SELECT kyc_status FROM users.users WHERE id = $1", userID).Scan(&finalUserKYCStatusAfterCommit)
+		if err != nil {
+			_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'Error checking user KYC status after direct update: " + err.Error() + "')")
+			return fmt.Errorf("failed to verify user KYC status after direct update: %w", err)
+		}
+
+		_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'User KYC status after direct update: " + finalUserKYCStatusAfterCommit + "')")
+
+		if finalUserKYCStatusAfterCommit != status {
+			_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'CRITICAL ERROR: User KYC status could not be updated even with direct update!')")
+			return fmt.Errorf("critical error: user KYC status could not be updated even with direct update")
+		}
+
+		_, _ = r.DB.Exec("SELECT pg_notify('kyc_log', 'User KYC status successfully updated with direct update')")
+	}
+
+	return nil
 }
 
 // GetVerificationRequests gets verification requests with optional filters
