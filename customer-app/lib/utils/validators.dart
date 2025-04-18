@@ -85,8 +85,8 @@ class Validators {
     }
     // Remove any non-digit characters for validation
     final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
-    if (digitsOnly.length < 10) {
-      return 'Phone number must have at least 10 digits';
+    if (digitsOnly.length != 10) {
+      return 'Phone number must be exactly 10 digits';
     }
     return null;
   }

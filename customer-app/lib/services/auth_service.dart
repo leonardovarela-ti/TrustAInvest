@@ -37,7 +37,7 @@ class AuthService extends ChangeNotifier {
   Future<void> saveRegistrationResponse(RegistrationResponse response) async {
     if (response.id.isNotEmpty) {
       await _secureStorage.write(key: _userIdKey, value: response.id);
-      await _saveUserId(response.id);
+      await saveUserId(response.id);
       notifyListeners();
     } else {
       debugPrint('Warning: Empty user ID in registration response');
@@ -71,9 +71,10 @@ class AuthService extends ChangeNotifier {
   }
   
   // Save user ID
-  Future<void> _saveUserId(String userId) async {
+  Future<void> saveUserId(String userId) async {
     _userId = userId;
     await _secureStorage.write(key: _userIdKey, value: userId);
+    notifyListeners();
   }
   
   // Load user data from shared preferences

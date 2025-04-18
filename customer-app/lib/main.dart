@@ -7,6 +7,8 @@ import 'services/api_service.dart';
 import 'services/config_service.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/registration_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/profile_screen.dart';
 import 'utils/theme.dart';
 
 void main() async {
@@ -48,6 +50,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/welcome': (context) => const WelcomeScreen(),
         '/register': (context) => const RegistrationScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/profile': (context) => const ProfileScreen(),
       },
     );
   }

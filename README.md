@@ -212,7 +212,7 @@ After registration, the user will receive an email with a verification link. To 
 curl -X POST http://localhost:8086/api/v1/verify-email \
   -H "Content-Type: application/json" \
   -d '{
-    "token": "verification-token-from-email"
+    "token": "5d300473-142c-4256-ae2a-587c46dea5b8⁠"
   }'
 ```
 
@@ -277,6 +277,14 @@ For KYC verification staff, the KYC Verifier Service provides an API for managin
      -H "Authorization: Bearer $TOKEN"
    ```
 
+   ```bash
+   curl -X GET http://localhost:8090/api/verification-requests \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUwMzYxODUsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiNTM4MzQyOWEtOTlhNy00MDg3LTlhZWQtOGEzM2U2ZjA4ZjM1IiwidXNlcm5hbWUiOiJhZG1pbiJ9.lHAfkSAiI7tz457t77h809IubO-3fX34c0LcEDfsSdI"
+   ```
+
+
+
+
    This will return a list of verification requests:
    ```json
    {
@@ -297,8 +305,8 @@ For KYC verification staff, the KYC Verifier Service provides an API for managin
 
 3. Get details of a specific verification request:
    ```bash
-   curl -X GET http://localhost:8090/api/verification-requests/550e8400-e29b-41d4-a716-446655440000 \
-     -H "Authorization: Bearer $TOKEN"
+   curl -X GET http://localhost:8090/api/verification-requests/9ab70d79-48da-4a93-9b35-e11b7a935453 \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUwMzYxODUsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiNTM4MzQyOWEtOTlhNy00MDg3LTlhZWQtOGEzM2U2ZjA4ZjM1IiwidXNlcm5hbWUiOiJhZG1pbiJ9.lHAfkSAiI7tz457t77h809IubO-3fX34c0LcEDfsSdI"
    ```
 
    This will return detailed information about the verification request.
@@ -310,6 +318,14 @@ For KYC verification staff, the KYC Verifier Service provides an API for managin
      -H "Authorization: Bearer $TOKEN" \
      -d '{"status":"VERIFIED"}'
    ```
+
+    ```bash
+   curl -X PATCH http://localhost:8090/api/verification-requests/9ab70d79-48da-4a93-9b35-e11b7a935453/status \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUwMzYxODUsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiNTM4MzQyOWEtOTlhNy00MDg3LTlhZWQtOGEzM2U2ZjA4ZjM1IiwidXNlcm5hbWUiOiJhZG1pbiJ9.lHAfkSAiI7tz457t77h809IubO-3fX34c0LcEDfsSdI" \
+     -d '{"status":"VERIFIED"}'
+   ```
+9ab70d79-48da-4a93-9b35-e11b7a935453
 
    A successful response will look like:
    ```json

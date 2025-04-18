@@ -76,12 +76,7 @@ class WelcomeScreen extends StatelessWidget {
               CustomButton(
                 text: 'Sign In',
                 onPressed: () {
-                  // Will be implemented later
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Sign in functionality coming soon!'),
-                    ),
-                  );
+                  Navigator.pushNamed(context, '/login');
                 },
                 isOutlined: true,
               ),

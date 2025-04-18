@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -650,11 +651,13 @@ func validateUser(user User) []ValidationError {
 	}
 
 	// Validate phone number (if provided)
-	if user.PhoneNumber != "" && !isValidPhoneNumber(user.PhoneNumber) {
-		errors = append(errors, ValidationError{
-			Field:   "phone_number",
-			Message: "Invalid phone number format",
-		})
+	if user.PhoneNumber != "" {
+		if !isValidPhoneNumber(user.PhoneNumber) {
+			errors = append(errors, ValidationError{
+				Field:   "phone_number",
+				Message: "Phone number must be exactly 10 digits (e.g., 1234567890)",
+			})
+		}
 	}
 
 	return errors
@@ -704,7 +707,8 @@ func isValidPhoneNumber(phone string) bool {
 	cleanPhone := regexp.MustCompile(`\D`).ReplaceAllString(phone, "")
 
 	// Check if the cleaned phone number has a valid length (assuming US)
-	return len(cleanPhone) >= 10 && len(cleanPhone) <= 15
+	// For US numbers, we expect 10 digits (area code + number)
+	return len(cleanPhone) == 10
 }
 
 // Mock email sending function
@@ -772,20 +776,21 @@ func loginHandler(c *gin.Context) {
 
 	// Get user by username
 	var user struct {
-		ID           string
-		Username     string
-		Email        string
-		PasswordHash []byte
-		IsActive     bool
-		KYCStatus    string
+		ID            string
+		Username      string
+		Email         string
+		PasswordHash  []byte
+		IsActive      bool
+		KYCStatus     string
+		EmailVerified bool
 	}
 
 	err := db.QueryRow(context.Background(), `
-		SELECT id, username, email, password_hash, is_active, kyc_status
+		SELECT id, username, email, password_hash, is_active, kyc_status, email_verified
 		FROM users.users
 		WHERE username = $1
 	`, request.Username).Scan(
-		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.IsActive, &user.KYCStatus,
+		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.IsActive, &user.KYCStatus, &user.EmailVerified,
 	)
 
 	if err != nil {
@@ -796,6 +801,18 @@ func loginHandler(c *gin.Context) {
 	// Check if user is active
 	if !user.IsActive {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User account is not active"})
+		return
+	}
+
+	// Check if email is verified
+	if !user.EmailVerified {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email not verified. Please verify your email before logging in."})
+		return
+	}
+
+	// Check if KYC is verified
+	if user.KYCStatus != "VERIFIED" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "KYC not verified. Your account is pending KYC verification."})
 		return
 	}
 
@@ -891,23 +908,57 @@ func getCurrentUserHandler(c *gin.Context) {
 
 	// Get user from database
 	var user struct {
-		ID        string `json:"id"`
-		Username  string `json:"username"`
-		Email     string `json:"email"`
-		FirstName string `json:"first_name"`
-		LastName  string `json:"last_name"`
+		ID            string  `json:"id"`
+		Username      string  `json:"username"`
+		Email         string  `json:"email"`
+		PhoneNumber   string  `json:"phone_number,omitempty"`
+		FirstName     string  `json:"first_name"`
+		LastName      string  `json:"last_name"`
+		DateOfBirth   string  `json:"date_of_birth"`
+		Address       Address `json:"address"`
+		RiskProfile   string  `json:"risk_profile,omitempty"`
+		DeviceID      string  `json:"device_id,omitempty"`
+		KYCStatus     string  `json:"kyc_status"`
+		KYCVerifiedAt string  `json:"kyc_verified_at,omitempty"`
+		IsActive      bool    `json:"is_active"`
+		EmailVerified bool    `json:"email_verified"`
+		CreatedAt     string  `json:"created_at"`
+		UpdatedAt     string  `json:"updated_at"`
 	}
 
+	var (
+		dateOfBirth   time.Time
+		kycVerifiedAt sql.NullTime
+		createdAt     time.Time
+		updatedAt     time.Time
+	)
+
 	err := db.QueryRow(context.Background(), `
-		SELECT id, username, email, first_name, last_name
+		SELECT id, username, email, phone_number, first_name, last_name, date_of_birth,
+			   street, city, state, zip_code, country, risk_profile, device_id,
+			   kyc_status, kyc_verified_at, is_active, email_verified, created_at, updated_at
 		FROM users.users
 		WHERE id = $1
-	`, userID).Scan(&user.ID, &user.Username, &user.Email, &user.FirstName, &user.LastName)
+	`, userID).Scan(
+		&user.ID, &user.Username, &user.Email, &user.PhoneNumber, &user.FirstName, &user.LastName, &dateOfBirth,
+		&user.Address.Street, &user.Address.City, &user.Address.State, &user.Address.ZipCode, &user.Address.Country,
+		&user.RiskProfile, &user.DeviceID, &user.KYCStatus, &kycVerifiedAt, &user.IsActive, &user.EmailVerified,
+		&createdAt, &updatedAt,
+	)
 
 	if err != nil {
+		log.Printf("Error fetching user data: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching user data"})
 		return
 	}
+
+	// Format dates as ISO 8601 strings
+	user.DateOfBirth = dateOfBirth.Format("2006-01-02")
+	if kycVerifiedAt.Valid {
+		user.KYCVerifiedAt = kycVerifiedAt.Time.Format(time.RFC3339)
+	}
+	user.CreatedAt = createdAt.Format(time.RFC3339)
+	user.UpdatedAt = updatedAt.Format(time.RFC3339)
 
 	c.JSON(http.StatusOK, user)
 }

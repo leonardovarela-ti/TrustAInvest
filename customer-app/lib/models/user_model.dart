@@ -38,26 +38,65 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    print('Creating User from JSON: $json');
+    
+    // Extract values with null checks and type conversion
+    final id = json['id']?.toString();
+    final username = json['username']?.toString() ?? '';
+    final email = json['email']?.toString() ?? '';
+    final phoneNumber = json['phone_number']?.toString() ?? '';
+    final firstName = json['first_name']?.toString() ?? '';
+    final lastName = json['last_name']?.toString() ?? '';
+    final dateOfBirth = json['date_of_birth'] != null 
+        ? DateTime.parse(json['date_of_birth'].toString()) 
+        : DateTime.now();
+    final address = json['address'] != null 
+        ? Address.fromJson(json['address']) 
+        : Address(
+            street: '',
+            city: '',
+            state: '',
+            zipCode: '',
+            country: '',
+          );
+    final ssn = json['ssn']?.toString() ?? '';
+    final riskProfile = json['risk_profile']?.toString() ?? '';
+    final kycStatus = json['kyc_status']?.toString() ?? 'PENDING';
+    final kycVerifiedAt = json['kyc_verified_at'] != null 
+        ? DateTime.parse(json['kyc_verified_at'].toString()) 
+        : null;
+    final isActive = json['is_active'] ?? true;
+    final createdAt = json['created_at'] != null 
+        ? DateTime.parse(json['created_at'].toString()) 
+        : null;
+    final updatedAt = json['updated_at'] != null 
+        ? DateTime.parse(json['updated_at'].toString()) 
+        : null;
+    
+    print('Extracted user values:');
+    print('ID: $id');
+    print('Username: $username');
+    print('Email: $email');
+    print('Phone: $phoneNumber');
+    print('Name: $firstName $lastName');
+    print('KYC Status: $kycStatus');
+    
     return User(
-      id: json['id'],
-      username: json['username'],
-      email: json['email'],
-      phoneNumber: json['phone_number'],
-      firstName: json['first_name'],
-      lastName: json['last_name'],
-      dateOfBirth: DateTime.parse(json['date_of_birth']),
-      address: Address.fromJson(json['address']),
-      ssn: json['ssn'] ?? '',
-      riskProfile: json['risk_profile'] ?? '',
-      kycStatus: json['kyc_status'] ?? 'PENDING',
-      kycVerifiedAt: json['kyc_verified_at'] != null
-          ? DateTime.parse(json['kyc_verified_at'])
-          : null,
-      isActive: json['is_active'] ?? true,
-      createdAt:
-          json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt:
-          json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      id: id,
+      username: username,
+      email: email,
+      phoneNumber: phoneNumber,
+      firstName: firstName,
+      lastName: lastName,
+      dateOfBirth: dateOfBirth,
+      address: address,
+      ssn: ssn,
+      riskProfile: riskProfile,
+      kycStatus: kycStatus,
+      kycVerifiedAt: kycVerifiedAt,
+      isActive: isActive,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 
@@ -148,12 +187,28 @@ class Address {
   });
 
   factory Address.fromJson(Map<String, dynamic> json) {
+    print('Creating Address from JSON: $json');
+    
+    // Extract values with null checks and type conversion
+    final street = json['street']?.toString() ?? '';
+    final city = json['city']?.toString() ?? '';
+    final state = json['state']?.toString() ?? '';
+    final zipCode = json['zip_code']?.toString() ?? '';
+    final country = json['country']?.toString() ?? '';
+    
+    print('Extracted address values:');
+    print('Street: $street');
+    print('City: $city');
+    print('State: $state');
+    print('Zip: $zipCode');
+    print('Country: $country');
+    
     return Address(
-      street: json['street'],
-      city: json['city'],
-      state: json['state'],
-      zipCode: json['zip_code'],
-      country: json['country'],
+      street: street,
+      city: city,
+      state: state,
+      zipCode: zipCode,
+      country: country,
     );
   }
 
@@ -207,5 +262,61 @@ class RegistrationResponse {
       status: json['status'] ?? 'PENDING',
       message: json['message'] ?? 'Registration successful',
     );
+  }
+}
+
+class LoginResponse {
+  final String token;
+  final int expiresIn;
+  final String userId;
+  final String username;
+  final String email;
+
+  LoginResponse({
+    required this.token,
+    required this.expiresIn,
+    required this.userId,
+    required this.username,
+    required this.email,
+  });
+
+  factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    print('Creating LoginResponse from JSON: $json');
+    
+    // Extract values with null checks and type conversion
+    final token = json['token']?.toString() ?? '';
+    final expiresIn = json['expires_in'] is int 
+        ? json['expires_in'] as int 
+        : (json['expires_in'] is String 
+            ? int.tryParse(json['expires_in'] as String) ?? 86400 
+            : 86400);
+    final userId = json['user_id']?.toString() ?? '';
+    final username = json['username']?.toString() ?? '';
+    final email = json['email']?.toString() ?? '';
+    
+    print('Extracted values:');
+    print('Token: $token');
+    print('Expires in: $expiresIn');
+    print('User ID: $userId');
+    print('Username: $username');
+    print('Email: $email');
+    
+    return LoginResponse(
+      token: token,
+      expiresIn: expiresIn,
+      userId: userId,
+      username: username,
+      email: email,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'token': token,
+      'expires_in': expiresIn,
+      'user_id': userId,
+      'username': username,
+      'email': email,
+    };
   }
 }
