@@ -3,6 +3,21 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import 'config_service.dart';
 
+class ApiException implements Exception {
+  final int statusCode;
+  final String message;
+  final StackTrace? stackTrace;
+
+  ApiException({
+    required this.statusCode,
+    required this.message,
+    this.stackTrace,
+  });
+
+  @override
+  String toString() => 'ApiException: $message (Status: $statusCode)';
+}
+
 class ApiService {
   late String baseUrl;
   final http.Client _client;
@@ -189,7 +204,10 @@ class ApiService {
   // Login user
   Future<LoginResponse> login(String username, String password) async {
     try {
-      print('Sending login request to: $baseUrl/api/v1/auth/login');
+      print('API Service - Login request:');
+      print('URL: $baseUrl/api/v1/auth/login');
+      print('Username: $username');
+      
       final response = await _client.post(
         Uri.parse('$baseUrl/api/v1/auth/login'),
         headers: {'Content-Type': 'application/json'},
@@ -199,24 +217,23 @@ class ApiService {
         }),
       );
 
-      print('Login response status code: ${response.statusCode}');
-      print('Login response body: ${response.body}');
+      print('API Service - Login response:');
+      print('Status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         try {
           final responseData = jsonDecode(response.body);
-          print('Login response parsed: $responseData');
-          
-          // Check for null values in the response
+          print('API Service - Parsed login response:');
           print('Token: ${responseData['token']}');
-          print('Expires in: ${responseData['expires_in']}');
-          print('User ID: ${responseData['user_id']}');
+          print('UserId: ${responseData['user_id']}');
           print('Username: ${responseData['username']}');
           print('Email: ${responseData['email']}');
           
           return LoginResponse.fromJson(responseData);
         } catch (parseError) {
-          print('Error parsing login response: $parseError');
+          print('API Service - Error parsing login response:');
+          print('Parse error: $parseError');
           print('Response body: ${response.body}');
           throw ApiException(
             statusCode: 500,
@@ -225,16 +242,19 @@ class ApiService {
         }
       } else {
         final errorData = jsonDecode(response.body);
+        print('API Service - Login error response:');
+        print('Error data: $errorData');
         throw ApiException(
           statusCode: response.statusCode,
           message: errorData['error'] ?? 'Login failed',
         );
       }
     } catch (e) {
+      print('API Service - Login request failed:');
+      print('Error: $e');
       if (e is ApiException) {
         rethrow;
       }
-      print('Login error: $e');
       throw ApiException(
         statusCode: 500,
         message: 'Network error: ${e.toString()}',
@@ -373,17 +393,5 @@ class ApiService {
         message: 'Network error: ${e.toString()}',
       );
     }
-  }
-}
-
-class ApiException implements Exception {
-  final int statusCode;
-  final String message;
-
-  ApiException({required this.statusCode, required this.message});
-
-  @override
-  String toString() {
-    return 'ApiException: $statusCode - $message';
   }
 }

@@ -20,24 +20,42 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    print('LoginScreen initialized');
+  }
+
+  @override
   void dispose() {
+    print('LoginScreen disposed');
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('Login button pressed');
+    print('Username: ${_usernameController.text}');
+    print('Form validation state: ${_formKey.currentState?.validate()}');
+
+    if (!_formKey.currentState!.validate()) {
+      print('Form validation failed');
+      return;
+    }
 
     setState(() => _isLoading = true);
+    print('Loading state set to true');
 
     try {
+      print('Getting API and Auth services');
       final apiService = Provider.of<ApiService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
 
+      print('API Base URL: ${apiService.baseUrl}');
       print('Attempting login with username: ${_usernameController.text}');
       
       // Attempt login
+      print('Sending login request...');
       final loginResponse = await apiService.login(
         _usernameController.text,
         _passwordController.text,
@@ -71,7 +89,13 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/profile');
       }
     } on ApiException catch (e) {
-      print('API Exception caught: ${e.message}');
+      print('API Exception caught:');
+      print('Status code: ${e.statusCode}');
+      print('Message: ${e.message}');
+      if (e.stackTrace != null) {
+        print('Stack trace: ${e.stackTrace}');
+      }
+      
       if (mounted) {
         showDialog(
           context: context,
@@ -81,8 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
-    } catch (e) {
-      print('Unexpected error during login: $e');
+    } catch (e, stackTrace) {
+      print('Unexpected error during login:');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      
       if (mounted) {
         showDialog(
           context: context,
@@ -94,6 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) {
+        print('Setting loading state to false');
         setState(() => _isLoading = false);
       }
     }
@@ -101,6 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('Building LoginScreen');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Login'),
@@ -119,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _usernameController,
                   label: 'Username',
                   validator: (value) {
+                    print('Validating username: $value');
                     if (value == null || value.isEmpty) {
                       return 'Please enter your username';
                     }
@@ -131,6 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: 'Password',
                   obscureText: true,
                   validator: (value) {
+                    print('Validating password: ${value?.length ?? 0} characters');
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
                     }
@@ -146,6 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
+                    print('Register button pressed');
                     Navigator.pushNamed(context, '/register');
                   },
                   child: const Text('Don\'t have an account? Register'),
