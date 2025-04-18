@@ -17,6 +17,7 @@ RUN flutter config --enable-web
 # Set up the app
 WORKDIR /app
 COPY . .
+RUN rm -f assets/config/config.json  # Remove the config file before building
 RUN flutter clean
 RUN flutter pub get
 RUN flutter build web --profile
@@ -30,9 +31,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Create necessary directories
 RUN mkdir -p /usr/share/nginx/html/assets/config
-
-# Copy configuration files
-COPY assets/config/config.json /usr/share/nginx/html/assets/config/
 
 # Copy and set up entrypoint script
 COPY entrypoint.sh /docker-entrypoint.sh
