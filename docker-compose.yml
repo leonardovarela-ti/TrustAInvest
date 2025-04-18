@@ -347,15 +347,11 @@ services:
       - backend
 
   customer-app:
-    build:
-      context: ./customer-app
-      dockerfile: Dockerfile
-    container_name: customer-app
+    build: ./customer-app
     ports:
-      - "3001:80"
+      - "3001:8080"
     environment:
-      # When running in the container, use the internal service name and port
-      API_BASE_URL: http://user-registration-service:8080
+      - API_BASE_URL=http://user-registration-service:8080
     depends_on:
       - user-registration-service
     networks:

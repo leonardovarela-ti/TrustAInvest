@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="$FLUTTER_BASE_HREF">
+  <base href="/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -9,6 +9,7 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="TrustAInvest">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -21,28 +22,138 @@
 
   <script>
     // The value below is injected by flutter build, do not touch.
-    var serviceWorkerVersion = null;
+    const serviceWorkerVersion = '"2978667086"';
   </script>
-  <!-- This script adds the flutter initialization JS code -->
-  <script src="flutter.js" defer></script>
-  <script src="flutter_bootstrap.js" defer></script>
+
+  <style>
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      -ms-transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%);
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 8px solid #3498db;
+      width: 60px;
+      height: 60px;
+      -webkit-animation: spin 1s linear infinite;
+      animation: spin 1s linear infinite;
+    }
+    @-webkit-keyframes spin {
+      0% { -webkit-transform: rotate(0deg); }
+      100% { -webkit-transform: rotate(360deg); }
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-  <script>
-    {{flutter_js}}
-  {{flutter_build_config}}
+  <div class="loading">
+    <div class="loader"></div>
+  </div>
 
-  window.addEventListener('load', function (ev) {
-    _flutter.loader.load({
-      serviceWorker: {
-        serviceWorkerVersion: '{{flutter_service_worker_version}}',
-      },
-      onEntrypointLoaded: async function(engineInitializer) {
-        let appRunner = await engineInitializer.initializeEngine();
-        await appRunner.runApp();
+  <script>
+    console.log('Starting initialization...');
+    
+    // Load Flutter.js
+    const script = document.createElement('script');
+    script.src = 'flutter.js';
+    script.type = 'application/javascript';
+    document.body.appendChild(script);
+
+    script.onload = function() {
+      console.log('Flutter.js loaded');
+      
+      // Initialize Flutter
+      window._flutter = {};
+      console.log('Created _flutter object');
+
+      if ('serviceWorker' in navigator) {
+        console.log('Service worker supported, registering...');
+        window.addEventListener('flutter-first-frame', function () {
+          console.log('First frame rendered!');
+          document.querySelector('.loading').remove();
+        });
+        
+        navigator.serviceWorker.register('flutter_service_worker.js?v=' + serviceWorkerVersion)
+          .then(function(registration) {
+            console.log('Service worker registered successfully');
+          })
+          .catch(function(error) {
+            console.error('Service worker registration failed:', error);
+          });
       }
-    });
-  });
+
+      // Load main.dart.js
+      const mainScript = document.createElement('script');
+      mainScript.src = 'main.dart.js';
+      mainScript.type = 'application/javascript';
+      document.body.appendChild(mainScript);
+
+      mainScript.onload = function() {
+        console.log('main.dart.js loaded');
+        
+        // Initialize Flutter
+        window.flutter = {
+          loader: function() {
+            return Promise.resolve({
+              loadEntrypoint: function() {
+                return Promise.resolve({
+                  initializeEngine: function() {
+                    return Promise.resolve({
+                      runApp: function() {
+                        console.log('Running app...');
+                        return Promise.resolve();
+                      }
+                    });
+                  }
+                });
+              }
+            });
+          }
+        };
+
+        // Load the app
+        console.log('Loading app...');
+        window.flutter.loader().then(function(loader) {
+          console.log('Loader initialized');
+          return loader.loadEntrypoint({
+            serviceWorker: {
+              serviceWorkerVersion: serviceWorkerVersion,
+            },
+            onEntrypointLoaded: async function(engineInitializer) {
+              console.log('Entrypoint loaded, initializing engine...');
+              let appRunner = await engineInitializer.initializeEngine();
+              console.log('Engine initialized, running app...');
+              await appRunner.runApp();
+              console.log('App running successfully');
+            }
+          });
+        }).catch(function(error) {
+          console.error('Failed to load app:', error);
+          document.querySelector('.loading').remove();
+        });
+      };
+
+      mainScript.onerror = function(error) {
+        console.error('Failed to load main.dart.js:', error);
+        document.querySelector('.loading').remove();
+      };
+    };
+
+    script.onerror = function(error) {
+      console.error('Failed to load Flutter.js:', error);
+      document.querySelector('.loading').remove();
+    };
   </script>
 </body>
 </html>

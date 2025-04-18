@@ -1,4 +1,4 @@
-# Builder stage
+# Build stage
 FROM debian:bullseye-slim AS builder
 
 # Install dependencies
@@ -6,84 +6,44 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     unzip \
-    xz-utils \
-    libglu1-mesa \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up Flutter
-ENV FLUTTER_HOME=/opt/flutter
-ENV PATH=$FLUTTER_HOME/bin:$PATH
-
-# Download and install Flutter
-RUN git clone https://github.com/flutter/flutter.git $FLUTTER_HOME -b stable
+# Install Flutter
+RUN git clone https://github.com/flutter/flutter.git /opt/flutter -b stable
+ENV PATH="/opt/flutter/bin:${PATH}"
 RUN flutter doctor
 RUN flutter config --enable-web
 
-# Set up non-root user
-RUN groupadd -r flutter && useradd -r -g flutter -m -d /home/flutter flutter
-RUN mkdir -p /app && chown -R flutter:flutter /app $FLUTTER_HOME
-USER flutter
-
-# Set working directory
+# Set up the app
 WORKDIR /app
-
-# Copy pubspec files
-COPY --chown=flutter:flutter pubspec.yaml pubspec.lock* ./
-
-# Get dependencies
-RUN flutter pub get
-
-# Copy the rest of the application
-COPY --chown=flutter:flutter . .
-
-# clean the flutter app from the container
+COPY . .
 RUN flutter clean
-#Get dependencies again
-
 RUN flutter pub get
+RUN flutter build web --profile
 
-# Build the web app
-RUN flutter build web --release
-
-# Verify the build was successful
-RUN ls -la build/web
-
-# Final stage
+# Serve stage
 FROM nginx:alpine
 
-# Create a non-root user for nginx
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Copy the built web app from the builder stage
+# Copy the built app
 COPY --from=builder /app/build/web /usr/share/nginx/html
-
-# Copy the nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create a directory for environment variables
+# Create necessary directories
 RUN mkdir -p /usr/share/nginx/html/assets/config
 
-# Copy the entrypoint script
-COPY entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Copy configuration files
+COPY assets/config/config.json /usr/share/nginx/html/assets/config/
 
-# Make sure the non-root user owns the files and has proper permissions
-RUN chown -R appuser:appgroup /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/local/bin/docker-entrypoint.sh && \
-    chmod 755 /usr/local/bin/docker-entrypoint.sh && \
-    chmod -R 755 /usr/local/bin
+# Copy and set up entrypoint script
+COPY entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-# Update permissions for nginx to run as non-root
-RUN touch /var/run/nginx.pid && \
-    chown -R appuser:appgroup /var/run/nginx.pid
+# Create necessary directories and files for nginx
+RUN mkdir -p /var/log/nginx /var/cache/nginx /var/run \
+    && touch /var/run/nginx.pid
 
-# Verify the web files are correctly copied
-RUN ls -la /usr/share/nginx/html
+# Expose port
+EXPOSE 8080
 
-# Switch to non-root user
-USER appuser
-
-# Expose the web server port
-EXPOSE 80
-
-# Start nginx with the entrypoint script
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Set entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]

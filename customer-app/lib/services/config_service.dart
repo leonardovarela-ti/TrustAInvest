@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ConfigService {
   static ConfigService? _instance;
@@ -20,31 +19,33 @@ class ConfigService {
   Future<void> init() async {
     if (_isInitialized) return;
 
+    // Default configuration
+    _config = {
+      'apiBaseUrl': 'http://localhost:8080'
+    };
+
     try {
-      // Try to load config from assets/config/config.json first
+      // Load configuration from assets/config/config.json
+      print('Loading configuration from config.json');
       final configJson = await rootBundle.loadString('assets/config/config.json');
-      _config = json.decode(configJson);
+      final jsonConfig = json.decode(configJson);
+      _config.addAll(jsonConfig);
+      print('Loaded config.json: $_config');
     } catch (e) {
-      // If config.json doesn't exist, create an empty config
-      _config = {};
+      print('Error loading config.json: $e');
+      print('Using default configuration: $_config');
     }
 
     _isInitialized = true;
   }
 
-  // Get a value from the config, with fallback to .env file
+  // Get a value from the config
   String? get(String key) {
-    // First try to get from config.json
-    if (_config.containsKey(key)) {
-      return _config[key];
-    }
-    
-    // Then try to get from .env
-    return dotenv.env[key];
+    return _config[key]?.toString();
   }
 
-  // Get API base URL with fallback
+  // Get API base URL
   String getApiBaseUrl() {
-    return get('apiBaseUrl') ?? dotenv.env['API_BASE_URL'] ?? 'http://localhost:8080';
+    return get('apiBaseUrl') ?? 'http://localhost:8080';
   }
 }
