@@ -149,6 +149,59 @@ if [ -z "$VERIFICATION_REQUEST_ID" ]; then
 fi
 
 echo -e "${GREEN}Got verification request ID: $VERIFICATION_REQUEST_ID${NC}"
+# try to login before updating the verification request status
+# Step 5.1: Login with the non verified user
+echo -e "${YELLOW}Step 5.1: Attempting to login with the non-verified user...${NC}"
+# Create a JSON file for login
+cat > login-non-verified.json << EOF
+{
+  "username": "$USERNAME",
+  "password": "securePassword123!"
+}
+EOF
+
+# Add retry mechanism for login
+LOGIN_RETRY_COUNT=0
+LOGIN_MAX_RETRIES=5
+LOGIN_SUCCESS=false
+
+while [ $LOGIN_RETRY_COUNT -lt $LOGIN_MAX_RETRIES ] && [ "$LOGIN_SUCCESS" = false ]; do
+  echo -e "${YELLOW}Attempting login (${LOGIN_RETRY_COUNT}/${LOGIN_MAX_RETRIES})...${NC}"
+  
+  LOGIN_CMD="curl -v -X POST http://localhost:18086/api/v1/auth/login \\
+    -H \"Content-Type: application/json\" \\
+    -d @login-non-verified.json"
+  echo -e "${GREEN}Executing command:${NC}"
+  echo "$LOGIN_CMD"
+  LOGIN_RESPONSE=$(eval "$LOGIN_CMD 2>&1")
+
+  echo -e "${YELLOW}Full response (including headers):${NC}"
+  echo "$LOGIN_RESPONSE"
+
+  # Extract just the response body
+  LOGIN_BODY=$(echo "$LOGIN_RESPONSE" | awk '/^{/,/^}/')
+  echo -e "${YELLOW}Response body:${NC}"
+  echo "$LOGIN_BODY"
+  
+  # Check if the response contains an error message about KYC verification
+  if echo "$LOGIN_BODY" | grep -q "KYC not verified"; then
+    echo -e "${GREEN}Login correctly failed with KYC not verified message!${NC}"
+    LOGIN_SUCCESS=true
+  else
+    echo -e "${YELLOW}Login attempt did not fail as expected, retrying in 2 seconds...${NC}"
+    sleep 2
+    LOGIN_RETRY_COUNT=$((LOGIN_RETRY_COUNT + 1))
+  fi
+done
+
+if [ "$LOGIN_SUCCESS" = false ]; then
+  echo -e "${RED}Login did not fail as expected after ${LOGIN_MAX_RETRIES} attempts.${NC}"
+  echo -e "${YELLOW}Last response: $LOGIN_RESPONSE${NC}"
+  # Get the logs from the user-registration-service
+  echo -e "${YELLOW}User registration service logs:${NC}"
+  docker-compose -f docker-compose.test.yml logs user-registration-service
+  exit 1
+fi
 
 # Step 6: Update the verification request status to VERIFIED
 echo -e "${YELLOW}Step 6: Updating verification request status to VERIFIED...${NC}"
