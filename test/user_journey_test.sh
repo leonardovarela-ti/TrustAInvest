@@ -7,21 +7,17 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}Starting login integration test...${NC}"
+echo -e "${YELLOW}Starting user journey integration test...${NC}"
 
-# Step 1: Start the system using docker-compose if not already running
-if ! docker-compose -f docker-compose.test.yml ps | grep -q "postgres"; then
-  echo -e "${YELLOW}Step 1: Starting the system...${NC}"
-  docker-compose -f docker-compose.test.yml down -v # Ensure clean state
-  echo -e "${YELLOW}Starting services (this may take a minute)...${NC}"
-  docker-compose -f docker-compose.test.yml up -d
+# Step 1: Start the system using docker-compose
+echo -e "${YELLOW}Step 1: Starting the system...${NC}"
+docker-compose -f docker-compose.test.yml down -v # Ensure clean state
+echo -e "${YELLOW}Starting services (this may take a minute)...${NC}"
+docker-compose -f docker-compose.test.yml up -d
 
-  # Wait for services to be ready
-  echo -e "${YELLOW}Waiting for services to be ready...${NC}"
-  sleep 10
-else
-  echo -e "${YELLOW}System already running, skipping startup...${NC}"
-fi
+# Wait for services to be ready
+echo -e "${YELLOW}Waiting for services to be ready...${NC}"
+sleep 10
 
 # Check if user-registration-service is up
 echo -e "${YELLOW}Checking if user-registration-service is up...${NC}"
@@ -46,18 +42,18 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
   exit 1
 fi
 
-# Step 2: Register a user
-echo -e "${YELLOW}Step 2: Registering a user...${NC}"
+# Step 2: Register a new user
+echo -e "${YELLOW}Step 2: Registering a new user...${NC}"
 # Generate a unique username with timestamp
-UNIQUE_USERNAME="testuser_$(date +%s)"
-UNIQUE_EMAIL="test.user.$(date +%s)@example.com"
-echo -e "${YELLOW}Using unique username: $UNIQUE_USERNAME${NC}"
+TIMESTAMP=$(date +%s)
+USERNAME="testuser_${TIMESTAMP}"
+EMAIL="test.user.${TIMESTAMP}@example.com"
 
 # Create a JSON file for registration
 cat > register.json << EOF
 {
-  "username": "$UNIQUE_USERNAME",
-  "email": "$UNIQUE_EMAIL",
+  "username": "$USERNAME",
+  "email": "$EMAIL",
   "password": "securePassword123!",
   "phone_number": "+15551234567",
   "first_name": "Test",
@@ -103,7 +99,7 @@ sleep 2 # Give some time for logs to be written
 LOGS=$(docker-compose -f docker-compose.test.yml logs user-registration-service)
 
 # Extract the verification token from the logs
-VERIFICATION_TOKEN=$(echo "$LOGS" | grep -o "Sending verification email to $UNIQUE_EMAIL with link: https://app.trustainvest.com/verify?token=[a-f0-9-]*" | tail -1 | sed 's/.*token=//')
+VERIFICATION_TOKEN=$(echo "$LOGS" | grep -o "Sending verification email to $EMAIL with link: https://app.trustainvest.com/verify?token=[a-f0-9-]*" | tail -1 | sed 's/.*token=//')
 
 if [ -z "$VERIFICATION_TOKEN" ]; then
   echo -e "${RED}Failed to extract verification token from logs.${NC}"
@@ -144,7 +140,7 @@ echo -e "${GREEN}Email verified successfully!${NC}"
 
 # Step 5: Get the verification request ID from the database
 echo -e "${YELLOW}Step 5: Getting verification request ID from the database...${NC}"
-VERIFICATION_REQUEST_ID=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT id FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = '$UNIQUE_EMAIL'" | tr -d '[:space:]')
+VERIFICATION_REQUEST_ID=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT id FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = '$EMAIL'" | tr -d '[:space:]')
 
 if [ -z "$VERIFICATION_REQUEST_ID" ]; then
   echo -e "${RED}Failed to get verification request ID from the database.${NC}"
@@ -185,64 +181,78 @@ echo -e "${YELLOW}Re-enabling trigger...${NC}"
 ENABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
 echo "$ENABLE_TRIGGER_RESULT"
 
-# Step 7: Verify the password hash is already in the users table
-echo -e "${YELLOW}Step 7: Verifying password hash in users table...${NC}"
-
-PASSWORD_VERIFY_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
-SELECT password_hash FROM users.users WHERE id = '$USER_ID';
+# Step 7: Verify the KYC status is set to VERIFIED
+echo -e "${YELLOW}Step 7: Verifying KYC status is set to VERIFIED...${NC}"
+KYC_STATUS_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+SELECT kyc_status FROM users.users WHERE id = '$USER_ID';
 ")
-echo "$PASSWORD_VERIFY_RESULT"
+echo "$KYC_STATUS_RESULT"
 
-# If for some reason the password hash is not set, update it
-if echo "$PASSWORD_VERIFY_RESULT" | grep -q "0 rows"; then
-  echo -e "${YELLOW}Password hash not found, updating it...${NC}"
-  # Hash the password 'securePassword123!'
-  PASSWORD_HASH='$2a$10$1qAz2wSx3eDc4rFv5tGb5edva6SUJm.aj2wTpR8B.qF9gPsZxb7Vy'
-  
-  PASSWORD_UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
-  BEGIN;
-  UPDATE users.users SET password_hash = '$PASSWORD_HASH' WHERE id = '$USER_ID';
-  COMMIT;
-  ")
-  echo "$PASSWORD_UPDATE_RESULT"
-fi
-
-# Step 8: Attempt to login with the admin user
-echo -e "${YELLOW}Step 8: Attempting to login with the admin user...${NC}"
-# Create a JSON file for login
-cat > login.json << EOF
-{
-  "username": "admin",
-  "password": "admin123"
-}
-EOF
-
-LOGIN_CMD="curl -X POST http://localhost:18090/api/auth/login \\
-  -H \"Content-Type: application/json\" \\
-  -d @login.json"
-echo -e "${GREEN}Executing command:${NC}"
-echo "$LOGIN_CMD"
-LOGIN_RESPONSE=$(eval "$LOGIN_CMD -s")
-
-echo "Login response: $LOGIN_RESPONSE"
-
-# Extract the token from the response
-JWT_TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | sed 's/"token":"//')
-
-if [ -z "$JWT_TOKEN" ]; then
-  echo -e "${RED}Failed to extract JWT token from login response.${NC}"
+if echo "$KYC_STATUS_RESULT" | grep -q "VERIFIED"; then
+  echo -e "${GREEN}User's KYC status is correctly set to VERIFIED!${NC}"
+else
+  echo -e "${RED}User's KYC status is not set to VERIFIED as expected.${NC}"
   exit 1
 fi
 
-echo -e "${GREEN}Successfully logged in and received JWT token!${NC}"
+# Step 8: Login with the verified user
+echo -e "${YELLOW}Step 8: Attempting to login with the verified user...${NC}"
+# Create a JSON file for login
+cat > login.json << EOF
+{
+  "username": "$USERNAME",
+  "password": "securePassword123!"
+}
+EOF
 
-# Note: We're skipping the user info retrieval step since the JWT token is from the kyc-verifier-service,
-# not the user-registration-service. The two services have different JWT secrets.
+# Add retry mechanism for login
+LOGIN_RETRY_COUNT=0
+LOGIN_MAX_RETRIES=5
+LOGIN_SUCCESS=false
 
-# Clean up temporary files
+while [ $LOGIN_RETRY_COUNT -lt $LOGIN_MAX_RETRIES ] && [ "$LOGIN_SUCCESS" = false ]; do
+  echo -e "${YELLOW}Attempting login (${LOGIN_RETRY_COUNT}/${LOGIN_MAX_RETRIES})...${NC}"
+  
+  LOGIN_CMD="curl -v -X POST http://localhost:18086/api/v1/auth/login \\
+    -H \"Content-Type: application/json\" \\
+    -d @login.json"
+  echo -e "${GREEN}Executing command:${NC}"
+  echo "$LOGIN_CMD"
+  LOGIN_RESPONSE=$(eval "$LOGIN_CMD 2>&1")
+
+  echo -e "${YELLOW}Full response (including headers):${NC}"
+  echo "$LOGIN_RESPONSE"
+
+  # Extract just the response body
+  LOGIN_BODY=$(echo "$LOGIN_RESPONSE" | awk '/^{/,/^}/')
+  echo -e "${YELLOW}Response body:${NC}"
+  echo "$LOGIN_BODY"
+
+  # Extract the token from the response
+  JWT_TOKEN=$(echo "$LOGIN_BODY" | grep -o '"token":"[^"]*' | sed 's/"token":"//')
+
+  if [ -n "$JWT_TOKEN" ]; then
+    LOGIN_SUCCESS=true
+    echo -e "${GREEN}Successfully logged in and received JWT token!${NC}"
+  else
+    echo -e "${YELLOW}Login attempt failed, retrying in 2 seconds...${NC}"
+    sleep 2
+    LOGIN_RETRY_COUNT=$((LOGIN_RETRY_COUNT + 1))
+  fi
+done
+
+if [ "$LOGIN_SUCCESS" = false ]; then
+  echo -e "${RED}Failed to login after ${LOGIN_MAX_RETRIES} attempts.${NC}"
+  echo -e "${YELLOW}Last response: $LOGIN_RESPONSE${NC}"
+  # Get the logs from the user-registration-service
+  echo -e "${YELLOW}User registration service logs:${NC}"
+  docker-compose -f docker-compose.test.yml logs user-registration-service
+  exit 1
+fi
+
+# Clean up
+echo -e "${YELLOW}Cleaning up...${NC}"
+docker-compose -f docker-compose.test.yml down -v
 rm -f register.json verify.json login.json
 
-# Test completed successfully
-echo -e "${GREEN}All login and user info tests passed successfully!${NC}"
-
-exit 0
+echo -e "${GREEN}User journey test completed successfully!${NC}" 

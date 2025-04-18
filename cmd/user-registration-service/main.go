@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -111,9 +110,6 @@ func main() {
 		{
 			auth.POST("/login", loginHandler)
 			auth.GET("/me", authMiddleware(), getCurrentUserHandler)
-
-			// Register additional auth routes for compatibility with the test
-			auth.POST("", loginHandler) // This will handle /api/v1/auth with POST method
 		}
 	}
 
@@ -797,70 +793,46 @@ func loginHandler(c *gin.Context) {
 		return
 	}
 
-	// Verify password
-	if err := bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
 	// Check if user is active
 	if !user.IsActive {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is inactive"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User account is not active"})
 		return
 	}
 
-	// Check if user's KYC is verified
-	if user.KYCStatus != "VERIFIED" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is pending KYC verification"})
+	// Check if password is correct
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
 		return
 	}
 
 	// Generate JWT token
-	token, err := generateToken(user.ID, user.Username, user.Email)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
+		UserID:   user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+		Role:     "user",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		},
+	})
+
+	tokenString, err := token.SignedString([]byte("your-secret-key"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating token"})
 		return
 	}
 
-	// Return token and user info
 	c.JSON(http.StatusOK, LoginResponse{
-		Token:     token,
-		ExpiresIn: 3600, // 1 hour
+		Token:     tokenString,
+		ExpiresIn: 24 * 60 * 60,
 		UserID:    user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
 	})
 }
 
-// generateToken generates a new JWT token
-func generateToken(userID, username, email string) (string, error) {
-	// In a real implementation, this would use a secure secret key
-	secretKey := "your-secret-key"
-
-	expirationTime := time.Now().Add(1 * time.Hour)
-	claims := &Claims{
-		UserID:   userID,
-		Username: username,
-		Email:    email,
-		Role:     "USER",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "trustainvest.com",
-			Subject:   userID,
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(secretKey))
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
-}
-
-// authMiddleware creates a middleware for authentication
+// authMiddleware is a middleware function that validates JWT tokens
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the Authorization header
@@ -871,117 +843,71 @@ func authMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Check if the header starts with "Bearer "
-		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
+		// Extract the token from the Authorization header
+		// Format: "Bearer <token>"
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
 			c.Abort()
 			return
 		}
 
-		// Extract the token
-		tokenString := authHeader[7:]
+		tokenString := parts[1]
 
-		// Validate the token
-		claims, err := validateToken(tokenString)
+		// Parse and validate the token
+		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+			// In production, this should be a proper secret key
+			return []byte("your-secret-key"), nil
+		})
+
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return
 		}
 
-		// Set the user ID in the context
-		c.Set("userID", claims.UserID)
-		c.Set("username", claims.Username)
-		c.Set("email", claims.Email)
-		c.Set("role", claims.Role)
-
-		c.Next()
+		// Extract claims
+		if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+			// Set user info in context
+			c.Set("userID", claims.UserID)
+			c.Set("username", claims.Username)
+			c.Set("email", claims.Email)
+			c.Next()
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
 	}
 }
 
-// validateToken validates a JWT token
-func validateToken(tokenString string) (*Claims, error) {
-	// In a real implementation, this would use a secure secret key
-	secretKey := "your-secret-key"
-
-	claims := &Claims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secretKey), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !token.Valid {
-		return nil, errors.New("invalid token")
-	}
-
-	return claims, nil
-}
-
-// getCurrentUserHandler returns the current authenticated user
+// getCurrentUserHandler returns the current user's information
 func getCurrentUserHandler(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
+	userID := c.GetString("userID")
+	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Get user by ID
+	// Get user from database
 	var user struct {
-		ID          string    `json:"id"`
-		Username    string    `json:"username"`
-		Email       string    `json:"email"`
-		FirstName   string    `json:"first_name"`
-		LastName    string    `json:"last_name"`
-		PhoneNumber string    `json:"phone_number"`
-		DateOfBirth time.Time `json:"date_of_birth"`
-		Street      string    `json:"street"`
-		City        string    `json:"city"`
-		State       string    `json:"state"`
-		ZipCode     string    `json:"zip_code"`
-		Country     string    `json:"country"`
-		RiskProfile string    `json:"risk_profile"`
-		KYCStatus   string    `json:"kyc_status"`
-		CreatedAt   time.Time `json:"created_at"`
+		ID        string `json:"id"`
+		Username  string `json:"username"`
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
 	}
 
 	err := db.QueryRow(context.Background(), `
-		SELECT id, username, email, first_name, last_name, phone_number, 
-		       date_of_birth, street, city, state, zip_code, country,
-		       risk_profile, kyc_status, created_at
+		SELECT id, username, email, first_name, last_name
 		FROM users.users
-		WHERE id = $1 AND is_active = true
-	`, userID).Scan(
-		&user.ID, &user.Username, &user.Email, &user.FirstName, &user.LastName, &user.PhoneNumber,
-		&user.DateOfBirth, &user.Street, &user.City, &user.State, &user.ZipCode, &user.Country,
-		&user.RiskProfile, &user.KYCStatus, &user.CreatedAt,
-	)
+		WHERE id = $1
+	`, userID).Scan(&user.ID, &user.Username, &user.Email, &user.FirstName, &user.LastName)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user information"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching user data"})
 		return
 	}
 
-	// Return user info
-	c.JSON(http.StatusOK, gin.H{
-		"id":           user.ID,
-		"username":     user.Username,
-		"email":        user.Email,
-		"first_name":   user.FirstName,
-		"last_name":    user.LastName,
-		"phone_number": user.PhoneNumber,
-		"kyc_status":   user.KYCStatus,
-		"risk_profile": user.RiskProfile,
-		"created_at":   user.CreatedAt,
-		"address": gin.H{
-			"street":   user.Street,
-			"city":     user.City,
-			"state":    user.State,
-			"zip_code": user.ZipCode,
-			"country":  user.Country,
-		},
-	})
+	c.JSON(http.StatusOK, user)
 }
