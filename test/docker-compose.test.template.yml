@@ -1,0 +1,169 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${CONTAINER_PREFIX}-postgres
+    ports:
+      - "${PG_PORT}:5432"
+    environment:
+      - POSTGRES_USER=trustainvest
+      - POSTGRES_PASSWORD=trustainvest
+      - POSTGRES_DB=trustainvest
+    volumes:
+      - ${PG_VOLUME}:/var/lib/postgresql/data
+      - ../scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trustainvest"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ${TEST_NETWORK}
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${CONTAINER_PREFIX}-redis
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - ${REDIS_VOLUME}:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ${TEST_NETWORK}
+
+  localstack:
+    image: localstack/localstack
+    container_name: ${CONTAINER_PREFIX}-localstack
+    ports:
+      - "${LOCALSTACK_PORT}:4566"
+    environment:
+      - SERVICES=s3,dynamodb,cognito,apigateway,lambda,sqs,sns,kms
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - AWS_DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - EDGE_PORT=4566
+    volumes:
+      - ../localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../scripts/init-localstack.sh:/docker-entrypoint-initdb.d/init-localstack.sh
+      - ../init-localstack.sh:/docker-entrypoint-initdb.d/init-kyc-resources.sh
+    networks:
+      - ${TEST_NETWORK}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  user-registration-service:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.registration.test
+    container_name: ${CONTAINER_PREFIX}-user-registration-service
+    ports:
+      - "${USER_REG_PORT}:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KYC_QUEUE_URL=http://localstack:4566/000000000000/kyc-queue
+      - KYC_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:kyc-topic
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
+      - KMS_KEY_ID=alias/trustainvest-key
+      - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - ${TEST_NETWORK}
+
+  kyc-worker:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.kyc-worker.test
+    container_name: ${CONTAINER_PREFIX}-kyc-worker
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KYC_QUEUE_URL=http://localstack:4566/000000000000/kyc-queue
+      - KYC_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:kyc-topic
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
+      - KMS_KEY_ID=alias/trustainvest-key
+      - KYC_PROVIDER_URL=https://example.com/kyc-api
+      - KYC_PROVIDER_API_KEY=test-api-key
+      - WORKER_POOL_SIZE=3
+      - WORKER_BATCH_SIZE=10
+      - WORKER_POLL_INTERVAL_SECONDS=5
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - ${TEST_NETWORK}
+
+  kyc-verifier-service:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.kyc-verifier.test
+    container_name: ${CONTAINER_PREFIX}-kyc-verifier-service
+    ports:
+      - "${KYC_PORT}:8081"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - PORT=8081
+      - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest?sslmode=disable
+      - JWT_SECRET=test-jwt-secret
+      - CORS_ALLOWED_ORIGINS=*
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ${TEST_NETWORK}
+
+volumes:
+  ${PG_VOLUME}:
+  ${REDIS_VOLUME}:
+
+networks:
+  ${TEST_NETWORK}:
+    driver: bridge
+    name: ${TEST_NETWORK}

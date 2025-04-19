@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Get test name from filename
+TEST_NAME=$(basename "$0" .sh)
+
+# Generate environment variables
+eval $($(dirname "$0")/generate_test_env.sh "$TEST_NAME")
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -11,9 +17,9 @@ echo -e "${YELLOW}Starting integration tests...${NC}"
 
 # Step 1: Start the system using docker-compose
 echo -e "${YELLOW}Step 1: Starting the system...${NC}"
-docker-compose -f docker-compose.test.yml down -v # Ensure clean state
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v # Ensure clean state
 echo -e "${YELLOW}Starting services (this may take a minute)...${NC}"
-docker-compose -f docker-compose.test.yml up -d
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" up -d
 
 # Wait for services to be ready
 echo -e "${YELLOW}Waiting for services to be ready...${NC}"
@@ -25,7 +31,7 @@ MAX_RETRIES=30
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if curl -s http://localhost:18086/health | grep -q "ok"; then
+  if curl -s "http://localhost:$USER_REG_PORT/health" | grep -q "ok"; then
     echo -e "${GREEN}User registration service is up!${NC}"
     break
   fi
@@ -37,14 +43,15 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
   echo -e "${RED}Failed to connect to user-registration-service after ${MAX_RETRIES} attempts.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
 # Step 2: Register a user
 echo -e "${YELLOW}Step 2: Registering a user...${NC}"
-REGISTER_CMD="curl -X POST http://localhost:18086/api/v1/register \\
+REGISTER_CMD="curl -X POST http://localhost:$USER_REG_PORT/api/v1/register \\
   -H \"Content-Type: application/json\" \\
   -d '{
     \"username\": \"johndoe\",
@@ -74,8 +81,9 @@ echo "Registration response: $REGISTER_RESPONSE"
 # Check if registration was successful
 if ! echo "$REGISTER_RESPONSE" | grep -q "User registered successfully"; then
   echo -e "${RED}User registration failed.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -86,15 +94,16 @@ echo -e "${YELLOW}Step 3: Extracting verification token from logs...${NC}"
 sleep 2 # Give some time for logs to be written
 
 # Get the logs from the user-registration-service
-LOGS=$(docker-compose -f docker-compose.test.yml logs user-registration-service)
+LOGS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service)
 
 # Extract the verification token from the logs
 VERIFICATION_TOKEN=$(echo "$LOGS" | grep -o 'with link: https://app.trustainvest.com/verify?token=[a-f0-9-]*' | tail -1 | sed 's/.*token=//')
 
 if [ -z "$VERIFICATION_TOKEN" ]; then
   echo -e "${RED}Failed to extract verification token from logs.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -102,7 +111,7 @@ echo -e "${GREEN}Extracted verification token: $VERIFICATION_TOKEN${NC}"
 
 # Step 4: Verify the email using the token
 echo -e "${YELLOW}Step 4: Verifying email with token...${NC}"
-VERIFY_CMD="curl -X POST http://localhost:18086/api/v1/verify-email \\
+VERIFY_CMD="curl -X POST http://localhost:$USER_REG_PORT/api/v1/verify-email \\
   -H 'Content-Type: application/json' \\
   -d '{
     \"token\": \"$VERIFICATION_TOKEN\"
@@ -116,8 +125,9 @@ echo "Verification response: $VERIFY_RESPONSE"
 # Check if verification was successful
 if ! echo "$VERIFY_RESPONSE" | grep -q "Email verified successfully"; then
   echo -e "${RED}Email verification failed.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -128,15 +138,16 @@ echo -e "${YELLOW}Step 5: Checking KYC verification request in database...${NC}"
 sleep 2 # Give some time for the database to be updated
 
 # Run a query to check if the entry exists
-KYC_CHECK=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT COUNT(*) FROM kyc.verification_requests WHERE status = 'PENDING' AND request_data->>'source' = 'EMAIL_VERIFICATION'")
+KYC_CHECK=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT COUNT(*) FROM kyc.verification_requests WHERE status = 'PENDING' AND request_data->>'source' = 'EMAIL_VERIFICATION'")
 
 # Extract the count from the result
 COUNT=$(echo "$KYC_CHECK" | grep -o '[0-9]' | head -1)
 
 if [ "$COUNT" -eq "0" ]; then
   echo -e "${RED}No KYC verification request found in the database.${NC}"
-  docker-compose -f docker-compose.test.yml exec postgres psql -U trustainvest -d trustainvest -P pager=off -c "SELECT * FROM kyc.verification_requests"
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec postgres psql -U trustainvest -d trustainvest -P pager=off -c "SELECT * FROM kyc.verification_requests"
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -144,17 +155,18 @@ echo -e "${GREEN}KYC verification request found in the database!${NC}"
 
 # Print detailed information about the KYC request
 echo -e "${YELLOW}KYC verification request details:${NC}"
-docker-compose -f docker-compose.test.yml exec postgres psql -U trustainvest -d trustainvest -P pager=off -c "SELECT id, user_id, status, created_at, request_data FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'"
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec postgres psql -U trustainvest -d trustainvest -P pager=off -c "SELECT id, user_id, status, created_at, request_data FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'"
 
 # Step 6: Verify that first_name is included in the KYC verification request data
 echo -e "${YELLOW}Step 6: Checking if first_name is included in KYC verification request data...${NC}"
-FIRST_NAME_CHECK=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT request_data->>'first_name' FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'")
+FIRST_NAME_CHECK=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT request_data->>'first_name' FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'")
 
 # Check if first_name is present and not empty
 if ! echo "$FIRST_NAME_CHECK" | grep -q "John"; then
   echo -e "${RED}first_name field is missing or empty in the KYC verification request data.${NC}"
-  docker-compose -f docker-compose.test.yml exec postgres psql -U trustainvest -d trustainvest -c "SELECT request_data FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'"
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec postgres psql -U trustainvest -d trustainvest -c "SELECT request_data FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION'"
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -168,7 +180,7 @@ echo -e "${YELLOW}Skipping API check and proceeding with direct database verific
 
 # For testing purposes, we'll create a test verifier user in the database
 echo -e "${YELLOW}Creating a test verifier user...${NC}"
-docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
 INSERT INTO kyc.verifiers (id, username, email, password_hash, first_name, last_name, role, is_active, created_at)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
@@ -187,14 +199,15 @@ echo -e "${YELLOW}Skipping API verification and proceeding with direct database 
 
 # Verify directly in the database that the verification request exists
 echo -e "${YELLOW}Verifying in the database that the verification request exists...${NC}"
-VERIFICATION_COUNT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT COUNT(*) FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = 'john.doe@example.com'")
+VERIFICATION_COUNT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "SELECT COUNT(*) FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = 'john.doe@example.com'")
 
 # Extract the count from the result
 COUNT=$(echo "$VERIFICATION_COUNT" | grep -o '[0-9]' | head -1)
 
 if [ "$COUNT" -eq "0" ]; then
   echo -e "${RED}No verification request found for the registered email.${NC}"
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -205,11 +218,12 @@ echo -e "${YELLOW}Step 8: Verifying the KYC verification request...${NC}"
 
 # Get the verification request ID from the database
 echo -e "${YELLOW}Getting verification request ID from the database...${NC}"
-VERIFICATION_REQUEST_ID=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT id FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = 'john.doe@example.com'" | tr -d '[:space:]')
+VERIFICATION_REQUEST_ID=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT id FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = 'john.doe@example.com'" | tr -d '[:space:]')
 
 if [ -z "$VERIFICATION_REQUEST_ID" ]; then
   echo -e "${RED}Failed to get verification request ID from the database.${NC}"
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -217,9 +231,9 @@ echo -e "${GREEN}Got verification request ID: $VERIFICATION_REQUEST_ID${NC}"
 
 # Check if kyc-verifier-service is running, if not start it
 echo -e "${YELLOW}Checking if kyc-verifier-service is running...${NC}"
-if ! docker-compose -f docker-compose.test.yml ps | grep -q kyc-verifier-service; then
+if ! docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" ps | grep -q kyc-verifier-service; then
   echo -e "${YELLOW}Starting kyc-verifier-service...${NC}"
-  docker-compose -f docker-compose.test.yml up -d kyc-verifier-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" up -d kyc-verifier-service
 fi
 
 # Wait for kyc-verifier-service to be ready
@@ -227,16 +241,11 @@ echo -e "${YELLOW}Waiting for kyc-verifier-service to be ready...${NC}"
 MAX_RETRIES=30
 RETRY_COUNT=0
 
-# Set the port for kyc-verifier-service
-# Using a hardcoded value for reliability since we know the port mapping in docker-compose.test.yml
-KYC_PORT="18081"
-KYC_INTERNAL_PORT="8081"
-
-echo -e "${YELLOW}KYC verifier service is configured to use port ${KYC_PORT} (internal port ${KYC_INTERNAL_PORT})${NC}"
+echo -e "${YELLOW}KYC verifier service is configured to use port ${KYC_PORT} (internal port 8081)${NC}"
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   # Try the configured port
-  if curl -s http://localhost:${KYC_PORT}/health 2>/dev/null | grep -q ""; then
+  if curl -s "http://localhost:${KYC_PORT}/health" 2>/dev/null | grep -q ""; then
     echo -e "${GREEN}KYC verifier service is up on port ${KYC_PORT}!${NC}"
     break
   fi
@@ -290,17 +299,17 @@ if [ -z "$JWT_TOKEN" ]; then
   echo -e "${YELLOW}Updating verification request status to VERIFIED directly in the database...${NC}"
   
   # First, check the current status
-  CURRENT_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+  CURRENT_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
   echo -e "${YELLOW}Current status before update: $CURRENT_STATUS${NC}"
   
   # First, temporarily disable the trigger to avoid the verified_at field error
   echo -e "${YELLOW}Disabling trigger...${NC}"
-  DISABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests DISABLE TRIGGER update_user_kyc_status_trigger")
+  DISABLE_TRIGGER_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests DISABLE TRIGGER update_user_kyc_status_trigger")
   echo "$DISABLE_TRIGGER_RESULT"
   
   # Update the status with explicit transaction
   echo -e "${YELLOW}Updating verification request status...${NC}"
-  UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+  UPDATE_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
   BEGIN;
   UPDATE kyc.verification_requests SET status = 'VERIFIED', updated_at = NOW(), completed_at = NOW() WHERE id = '$VERIFICATION_REQUEST_ID';
   COMMIT;
@@ -308,12 +317,12 @@ if [ -z "$JWT_TOKEN" ]; then
   echo "$UPDATE_RESULT"
   
   # Verify the update was successful
-  UPDATED_STATUS_CHECK=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+  UPDATED_STATUS_CHECK=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
   echo -e "${YELLOW}Status after update: $UPDATED_STATUS_CHECK${NC}"
   
   # Also update the user's KYC status directly since we disabled the trigger
   echo -e "${YELLOW}Updating user KYC status...${NC}"
-  USER_UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+  USER_UPDATE_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
   BEGIN;
   UPDATE users.users SET kyc_status = 'VERIFIED', updated_at = NOW() WHERE id = (SELECT user_id FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID');
   COMMIT;
@@ -322,17 +331,18 @@ if [ -z "$JWT_TOKEN" ]; then
   
   # Re-enable the trigger
   echo -e "${YELLOW}Re-enabling trigger...${NC}"
-  ENABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
+  ENABLE_TRIGGER_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
   echo "$ENABLE_TRIGGER_RESULT"
   
   # Final verification
-  FINAL_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+  FINAL_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
   echo -e "${YELLOW}Final status after all updates: $FINAL_STATUS${NC}"
   
   if [ $? -ne 0 ]; then
     echo -e "${RED}Failed to update verification request status in the database.${NC}"
     echo "Update result: $UPDATE_RESULT"
-    docker-compose -f docker-compose.test.yml down
+    docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+    rm -f "$(dirname "$0")/$COMPOSE_FILE"
     exit 1
   fi
   
@@ -362,17 +372,17 @@ else
     echo -e "${YELLOW}Updating verification request status to VERIFIED directly in the database...${NC}"
     
     # First, check the current status
-    CURRENT_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+    CURRENT_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
     echo -e "${YELLOW}Current status before update: $CURRENT_STATUS${NC}"
     
     # First, temporarily disable the trigger to avoid the verified_at field error
     echo -e "${YELLOW}Disabling trigger...${NC}"
-    DISABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests DISABLE TRIGGER update_user_kyc_status_trigger")
+    DISABLE_TRIGGER_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests DISABLE TRIGGER update_user_kyc_status_trigger")
     echo "$DISABLE_TRIGGER_RESULT"
     
     # Update the status with explicit transaction
     echo -e "${YELLOW}Updating verification request status...${NC}"
-    UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+    UPDATE_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
     BEGIN;
     UPDATE kyc.verification_requests SET status = 'VERIFIED', updated_at = NOW(), completed_at = NOW() WHERE id = '$VERIFICATION_REQUEST_ID';
     COMMIT;
@@ -380,12 +390,12 @@ else
     echo "$UPDATE_RESULT"
     
     # Verify the update was successful
-    UPDATED_STATUS_CHECK=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+    UPDATED_STATUS_CHECK=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
     echo -e "${YELLOW}Status after update: $UPDATED_STATUS_CHECK${NC}"
     
     # Also update the user's KYC status directly since we disabled the trigger
     echo -e "${YELLOW}Updating user KYC status...${NC}"
-    USER_UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+    USER_UPDATE_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
     BEGIN;
     UPDATE users.users SET kyc_status = 'VERIFIED', updated_at = NOW() WHERE id = (SELECT user_id FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID');
     COMMIT;
@@ -394,17 +404,18 @@ else
     
     # Re-enable the trigger
     echo -e "${YELLOW}Re-enabling trigger...${NC}"
-    ENABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
+    ENABLE_TRIGGER_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
     echo "$ENABLE_TRIGGER_RESULT"
     
     # Final verification
-    FINAL_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+    FINAL_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
     echo -e "${YELLOW}Final status after all updates: $FINAL_STATUS${NC}"
     
     if [ $? -ne 0 ]; then
       echo -e "${RED}Failed to update verification request status in the database.${NC}"
       echo "Update result: $UPDATE_RESULT"
-      docker-compose -f docker-compose.test.yml down
+      docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+      rm -f "$(dirname "$0")/$COMPOSE_FILE"
       exit 1
     fi
     
@@ -416,33 +427,35 @@ fi
 
 # Check that the status was updated in the database
 echo -e "${YELLOW}Checking if status was updated in the database...${NC}"
-UPDATED_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+UPDATED_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT status FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
 
 if [ "$UPDATED_STATUS" != "VERIFIED" ]; then
   echo -e "${RED}Status was not updated in the database. Current status: $UPDATED_STATUS${NC}"
   
   # Check if the user's KYC status was updated
-  USER_ID=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT user_id FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
-  USER_KYC_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT kyc_status FROM users.users WHERE id = '$USER_ID'" | tr -d '[:space:]')
+  USER_ID=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT user_id FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+  USER_KYC_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT kyc_status FROM users.users WHERE id = '$USER_ID'" | tr -d '[:space:]')
   echo -e "${YELLOW}User KYC status in database: $USER_KYC_STATUS${NC}"
   
   # Print the logs from the KYC verifier service for debugging
   echo -e "${YELLOW}KYC verifier service logs:${NC}"
-  docker-compose -f docker-compose.test.yml logs kyc-verifier-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs kyc-verifier-service
   
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
 echo -e "${GREEN}Status was updated to VERIFIED in the database!${NC}"
 
 # Also check if the user's KYC status was updated
-USER_ID=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT user_id FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
-USER_KYC_STATUS=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT kyc_status FROM users.users WHERE id = '$USER_ID'" | tr -d '[:space:]')
+USER_ID=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT user_id FROM kyc.verification_requests WHERE id = '$VERIFICATION_REQUEST_ID'" | tr -d '[:space:]')
+USER_KYC_STATUS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT kyc_status FROM users.users WHERE id = '$USER_ID'" | tr -d '[:space:]')
 
 if [ "$USER_KYC_STATUS" != "VERIFIED" ]; then
   echo -e "${RED}User KYC status was not updated in the database. Current status: $USER_KYC_STATUS${NC}"
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -453,6 +466,7 @@ echo -e "${GREEN}All tests passed successfully!${NC}"
 
 # Clean up
 echo -e "${YELLOW}Cleaning up...${NC}"
-docker-compose -f docker-compose.test.yml down
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+rm -f "$(dirname "$0")/$COMPOSE_FILE"
 
 exit 0

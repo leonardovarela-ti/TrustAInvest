@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Get test name from filename
+TEST_NAME=$(basename "$0" .sh)
+
+# Generate environment variables
+eval $($(dirname "$0")/generate_test_env.sh "$TEST_NAME")
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -11,9 +17,9 @@ echo -e "${YELLOW}Starting user journey integration test...${NC}"
 
 # Step 1: Start the system using docker-compose
 echo -e "${YELLOW}Step 1: Starting the system...${NC}"
-docker-compose -f docker-compose.test.yml down -v # Ensure clean state
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v # Ensure clean state
 echo -e "${YELLOW}Starting services (this may take a minute)...${NC}"
-docker-compose -f docker-compose.test.yml up -d
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" up -d
 
 # Wait for services to be ready
 echo -e "${YELLOW}Waiting for services to be ready...${NC}"
@@ -25,7 +31,7 @@ MAX_RETRIES=30
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if curl -s http://localhost:18086/health | grep -q "ok"; then
+  if curl -s "http://localhost:$USER_REG_PORT/health" | grep -q "ok"; then
     echo -e "${GREEN}User registration service is up!${NC}"
     break
   fi
@@ -37,8 +43,9 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
   echo -e "${RED}Failed to connect to user-registration-service after ${MAX_RETRIES} attempts.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
   exit 1
 fi
 
@@ -72,7 +79,7 @@ cat > register.json << EOF
 }
 EOF
 
-REGISTER_CMD="curl -X POST http://localhost:18086/api/v1/register \\
+REGISTER_CMD="curl -X POST http://localhost:$USER_REG_PORT/api/v1/register \\
   -H \"Content-Type: application/json\" \\
   -d @register.json"
 echo -e "${GREEN}Executing command:${NC}"
@@ -86,6 +93,9 @@ USER_ID=$(echo "$REGISTER_RESPONSE" | grep -o '"user_id":"[^"]*' | sed 's/"user_
 
 if [ -z "$USER_ID" ]; then
   echo -e "${RED}Failed to extract user ID from registration response.${NC}"
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json
   exit 1
 fi
 
@@ -96,15 +106,17 @@ echo -e "${YELLOW}Step 3: Extracting verification token from logs...${NC}"
 sleep 2 # Give some time for logs to be written
 
 # Get the logs from the user-registration-service
-LOGS=$(docker-compose -f docker-compose.test.yml logs user-registration-service)
+LOGS=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service)
 
 # Extract the verification token from the logs
 VERIFICATION_TOKEN=$(echo "$LOGS" | grep -o "Sending verification email to $EMAIL with link: https://app.trustainvest.com/verify?token=[a-f0-9-]*" | tail -1 | sed 's/.*token=//')
 
 if [ -z "$VERIFICATION_TOKEN" ]; then
   echo -e "${RED}Failed to extract verification token from logs.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json
   exit 1
 fi
 
@@ -119,7 +131,7 @@ cat > verify.json << EOF
 }
 EOF
 
-VERIFY_CMD="curl -X POST http://localhost:18086/api/v1/verify-email \\
+VERIFY_CMD="curl -X POST http://localhost:$USER_REG_PORT/api/v1/verify-email \\
   -H 'Content-Type: application/json' \\
   -d @verify.json"
 echo -e "${GREEN}Executing command:${NC}"
@@ -131,8 +143,10 @@ echo "Verification response: $VERIFY_RESPONSE"
 # Check if verification was successful
 if ! echo "$VERIFY_RESPONSE" | grep -q "Email verified successfully"; then
   echo -e "${RED}Email verification failed.${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json verify.json
   exit 1
 fi
 
@@ -140,11 +154,13 @@ echo -e "${GREEN}Email verified successfully!${NC}"
 
 # Step 5: Get the verification request ID from the database
 echo -e "${YELLOW}Step 5: Getting verification request ID from the database...${NC}"
-VERIFICATION_REQUEST_ID=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT id FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = '$EMAIL'" | tr -d '[:space:]')
+VERIFICATION_REQUEST_ID=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -t -c "SELECT id FROM kyc.verification_requests WHERE request_data->>'source' = 'EMAIL_VERIFICATION' AND request_data->>'email' = '$EMAIL'" | tr -d '[:space:]')
 
 if [ -z "$VERIFICATION_REQUEST_ID" ]; then
   echo -e "${RED}Failed to get verification request ID from the database.${NC}"
-  docker-compose -f docker-compose.test.yml down
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json verify.json
   exit 1
 fi
 
@@ -168,7 +184,7 @@ LOGIN_SUCCESS=false
 while [ $LOGIN_RETRY_COUNT -lt $LOGIN_MAX_RETRIES ] && [ "$LOGIN_SUCCESS" = false ]; do
   echo -e "${YELLOW}Attempting login (${LOGIN_RETRY_COUNT}/${LOGIN_MAX_RETRIES})...${NC}"
   
-  LOGIN_CMD="curl -v -X POST http://localhost:18086/api/v1/auth/login \\
+  LOGIN_CMD="curl -v -X POST http://localhost:$USER_REG_PORT/api/v1/auth/login \\
     -H \"Content-Type: application/json\" \\
     -d @login-non-verified.json"
   echo -e "${GREEN}Executing command:${NC}"
@@ -199,7 +215,10 @@ if [ "$LOGIN_SUCCESS" = false ]; then
   echo -e "${YELLOW}Last response: $LOGIN_RESPONSE${NC}"
   # Get the logs from the user-registration-service
   echo -e "${YELLOW}User registration service logs:${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json verify.json login-non-verified.json
   exit 1
 fi
 
@@ -208,12 +227,12 @@ echo -e "${YELLOW}Step 6: Updating verification request status to VERIFIED...${N
 
 # Disable the trigger to avoid the verified_at field error
 echo -e "${YELLOW}Disabling trigger...${NC}"
-DISABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests DISABLE TRIGGER update_user_kyc_status_trigger")
+DISABLE_TRIGGER_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests DISABLE TRIGGER update_user_kyc_status_trigger")
 echo "$DISABLE_TRIGGER_RESULT"
 
 # Update the status with explicit transaction
 echo -e "${YELLOW}Updating verification request status...${NC}"
-UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+UPDATE_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
 BEGIN;
 UPDATE kyc.verification_requests SET status = 'VERIFIED', updated_at = NOW(), completed_at = NOW() WHERE id = '$VERIFICATION_REQUEST_ID';
 COMMIT;
@@ -222,7 +241,7 @@ echo "$UPDATE_RESULT"
 
 # Also update the user's KYC status directly since we disabled the trigger
 echo -e "${YELLOW}Updating user KYC status...${NC}"
-USER_UPDATE_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+USER_UPDATE_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
 BEGIN;
 UPDATE users.users SET kyc_status = 'VERIFIED', updated_at = NOW() WHERE id = '$USER_ID';
 COMMIT;
@@ -231,12 +250,12 @@ echo "$USER_UPDATE_RESULT"
 
 # Re-enable the trigger
 echo -e "${YELLOW}Re-enabling trigger...${NC}"
-ENABLE_TRIGGER_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
+ENABLE_TRIGGER_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "ALTER TABLE kyc.verification_requests ENABLE TRIGGER update_user_kyc_status_trigger")
 echo "$ENABLE_TRIGGER_RESULT"
 
 # Step 7: Verify the KYC status is set to VERIFIED
 echo -e "${YELLOW}Step 7: Verifying KYC status is set to VERIFIED...${NC}"
-KYC_STATUS_RESULT=$(docker-compose -f docker-compose.test.yml exec -T postgres psql -U trustainvest -d trustainvest -c "
+KYC_STATUS_RESULT=$(docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" exec -T postgres psql -U trustainvest -d trustainvest -c "
 SELECT kyc_status FROM users.users WHERE id = '$USER_ID';
 ")
 echo "$KYC_STATUS_RESULT"
@@ -245,6 +264,9 @@ if echo "$KYC_STATUS_RESULT" | grep -q "VERIFIED"; then
   echo -e "${GREEN}User's KYC status is correctly set to VERIFIED!${NC}"
 else
   echo -e "${RED}User's KYC status is not set to VERIFIED as expected.${NC}"
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json verify.json login-non-verified.json
   exit 1
 fi
 
@@ -266,7 +288,7 @@ LOGIN_SUCCESS=false
 while [ $LOGIN_RETRY_COUNT -lt $LOGIN_MAX_RETRIES ] && [ "$LOGIN_SUCCESS" = false ]; do
   echo -e "${YELLOW}Attempting login (${LOGIN_RETRY_COUNT}/${LOGIN_MAX_RETRIES})...${NC}"
   
-  LOGIN_CMD="curl -v -X POST http://localhost:18086/api/v1/auth/login \\
+  LOGIN_CMD="curl -v -X POST http://localhost:$USER_REG_PORT/api/v1/auth/login \\
     -H \"Content-Type: application/json\" \\
     -d @login.json"
   echo -e "${GREEN}Executing command:${NC}"
@@ -299,13 +321,17 @@ if [ "$LOGIN_SUCCESS" = false ]; then
   echo -e "${YELLOW}Last response: $LOGIN_RESPONSE${NC}"
   # Get the logs from the user-registration-service
   echo -e "${YELLOW}User registration service logs:${NC}"
-  docker-compose -f docker-compose.test.yml logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" logs user-registration-service
+  docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+  rm -f "$(dirname "$0")/$COMPOSE_FILE"
+  rm -f register.json verify.json login-non-verified.json login.json
   exit 1
 fi
 
 # Clean up
 echo -e "${YELLOW}Cleaning up...${NC}"
-docker-compose -f docker-compose.test.yml down -v
-rm -f register.json verify.json login.json
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+rm -f "$(dirname "$0")/$COMPOSE_FILE"
+rm -f register.json verify.json login-non-verified.json login.json
 
-echo -e "${GREEN}User journey test completed successfully!${NC}" 
+echo -e "${GREEN}User journey test completed successfully!${NC}"

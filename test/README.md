@@ -10,28 +10,84 @@ This directory contains integration tests for the TrustAInvest platform. These t
 
 ## Test Environment
 
-The tests use a dedicated Docker Compose configuration file (`docker-compose.test.yml`) that sets up an isolated test environment with the following components:
+The tests use a dynamic Docker Compose configuration that sets up completely isolated test environments with the following components:
 
-- PostgreSQL database on port 15432 (instead of the default 5432)
-- Redis on port 16379 (instead of the default 6379)
-- LocalStack on port 14566 (instead of the default 4566)
-- User Registration Service on port 18086 (instead of the default 8086)
+- PostgreSQL database
+- Redis
+- LocalStack
+- User Registration Service
 - KYC Worker service
+- KYC Verifier Service
 
-This port configuration ensures that the tests don't interfere with any development or production environments that might be running simultaneously.
+Each test gets its own completely isolated environment with:
+- Unique Docker Compose project name
+- Unique container names
+- Unique network names
+- Unique volume names
+- Unique port mappings
+
+This ensures that tests can run in parallel without interfering with each other, even when accessing the same resources. The project-based isolation means that each test runs in its own Docker Compose project context, providing complete separation between test environments.
+
+## Port Allocation
+
+The system uses the following port ranges:
+
+| Service                | Main Application | Test Environments |
+|------------------------|------------------|-------------------|
+| PostgreSQL             | 5432             | 15432-15532       |
+| Redis                  | 6379             | 16379-16479       |
+| LocalStack             | 4566             | 14566-14666       |
+| User Registration      | 8086             | 18086-18186       |
+| KYC Verifier           | 8090             | 18090-18190       |
+
+When running tests in parallel, each test will use a unique set of ports within these ranges.
 
 ## Running the Tests
 
-You can run all tests using the test runner script:
+### Running All Tests Sequentially
+
+You can run all tests sequentially using the test runner script:
 
 ```bash
 cd test
 ./run_tests.sh
 ```
 
-This will execute all test scripts in the directory and provide a summary of the results.
+Or using the Makefile:
 
-## Running Individual Tests
+```bash
+cd test
+make test
+```
+
+### Running All Tests in Parallel
+
+You can run all tests in parallel to speed up execution:
+
+```bash
+cd test
+make test-parallel
+```
+
+By default, this will run up to 3 tests concurrently. You can adjust the maximum number of concurrent tests by setting the `MAX_CONCURRENT` environment variable:
+
+```bash
+cd test
+MAX_CONCURRENT=5 make test-parallel
+```
+
+Each test runs in its own isolated Docker environment, so they won't interfere with each other even when running in parallel. This is achieved by:
+
+1. Generating unique identifiers for each test run
+2. Creating a unique Docker Compose project name for each test
+3. Creating unique container names with these identifiers
+4. Using separate Docker networks for each test
+5. Using separate Docker volumes for each test
+6. Mapping to different host ports for each test
+
+The project-based isolation is particularly important as it ensures that containers from different tests are completely separated in Docker's management system, allowing for true parallel execution without resource conflicts.
+
+### Running Individual Tests
 
 You can also run individual test scripts directly:
 
@@ -39,6 +95,20 @@ You can also run individual test scripts directly:
 cd test
 ./integration_test.sh  # Tests the user registration and KYC flow
 ./failed_registration_test.sh  # Tests error handling
+./login_test.sh  # Tests the login functionality
+./user_journey_test.sh  # Tests the complete user journey
+```
+
+### Running Tests with Makefile
+
+You can also run individual tests using the Makefile:
+
+```bash
+cd test
+make test-registration
+make test-failed-registration
+make test-login
+make test-user-journey
 ```
 
 ## Available Tests
@@ -63,14 +133,62 @@ This test verifies that the system properly handles various error cases:
 4. Email verification with invalid token
 5. Registration with duplicate username
 
+### Login Test (`login_test.sh`)
+
+This test verifies the login functionality:
+
+1. Registers a new user
+2. Verifies the email
+3. Updates the KYC status to VERIFIED
+4. Tests login functionality
+5. Tests session management
+
+### User Journey Test (`user_journey_test.sh`)
+
+This test verifies the complete user journey:
+
+1. Registers a new user
+2. Verifies the email
+3. Attempts to login before KYC verification (should fail)
+4. Updates the KYC status to VERIFIED
+5. Successfully logs in
+
 ## Adding New Tests
 
 To add a new test:
 
 1. Create a new shell script with a name ending in `_test.sh`
 2. Make it executable with `chmod +x your_test.sh`
-3. Implement your test logic
-4. The script should return exit code 0 for success and non-zero for failure
+3. Add the following code at the beginning of your script to use the dynamic environment:
+
+```bash
+#!/bin/bash
+set -e
+
+# Get test name from filename
+TEST_NAME=$(basename "$0" .sh)
+
+# Source the environment generator script
+source "$(dirname "$0")/generate_test_env.sh" "$TEST_NAME"
+eval $($(dirname "$0")/generate_test_env.sh "$TEST_NAME")
+```
+
+4. Use the environment variables provided by the generator script:
+   - `$COMPOSE_FILE`: The Docker Compose file to use
+   - `$PG_PORT`: The PostgreSQL port
+   - `$REDIS_PORT`: The Redis port
+   - `$LOCALSTACK_PORT`: The LocalStack port
+   - `$USER_REG_PORT`: The User Registration Service port
+   - `$KYC_PORT`: The KYC Verifier Service port
+   - `$TEST_NETWORK`: The Docker network name
+
+5. Clean up resources at the end of your test:
+
+```bash
+# Clean up
+docker-compose -f "$(dirname "$0")/$COMPOSE_FILE" down -v
+rm -f "$(dirname "$0")/$COMPOSE_FILE"
+```
 
 ## Test Structure Guidelines
 
@@ -106,6 +224,7 @@ A GitHub Actions workflow configuration is provided in `.github/workflows/integr
 If you encounter issues with the tests:
 
 1. Check the logs for each service using `docker-compose -f docker-compose.test.yml logs [service-name]`
-2. Ensure that no other services are running on the same ports (15432, 16379, 14566, 18086)
+2. Ensure that no other services are running on the same ports
 3. If tests are hanging, you can use the `timeout` command to limit the execution time
 4. Check the test results in the `results/` directory for detailed error information
+5. Use the `make clean` command to clean up any leftover resources

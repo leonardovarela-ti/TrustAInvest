@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -17,10 +16,6 @@ echo -e "${BLUE}   TrustAInvest Integration Tests      ${NC}"
 echo -e "${BLUE}=======================================${NC}"
 echo
 
-# Run all test scripts
-echo -e "${YELLOW}Running all integration tests...${NC}"
-echo
-
 # Create results directory if it doesn't exist
 mkdir -p results
 
@@ -36,40 +31,88 @@ echo "Run at: $(date)" >> $RESULTS_FILE
 echo "=======================================" >> $RESULTS_FILE
 echo "" >> $RESULTS_FILE
 
-# Find all test scripts
+# Find all test scripts (excluding isolation tests)
 TEST_SCRIPTS=$(find "$TEST_DIR" -name "*_test.sh" -type f | sort)
 
-# Run each test script
-for TEST_SCRIPT in $TEST_SCRIPTS; do
-    TEST_NAME=$(basename "$TEST_SCRIPT")
-    echo -e "${YELLOW}Running test: ${TEST_NAME}${NC}"
+# Maximum number of concurrent tests
+MAX_CONCURRENT=10
+COMPOSE_BAKE=true
+# Run tests in parallel
+echo -e "${YELLOW}Running tests in parallel (max $MAX_CONCURRENT at a time)...${NC}"
+
+# Array to store PIDs of running tests
+declare -a PIDS
+declare -a TEST_NAMES
+declare -a TEST_STATUSES
+
+# Function to wait for a test to complete and process its result
+wait_for_test() {
+    local pid=$1
+    local test_name=$2
+    local log_file=$3
     
-    # Run the test script and capture output
-    echo "Running test: $TEST_NAME" >> $RESULTS_FILE
-    echo "----------------------------------------" >> $RESULTS_FILE
-    echo -e "${YELLOW}Running ${TEST_NAME}...${NC}"
-    TEST_OUTPUT=$("$TEST_SCRIPT" 2>&1)
-    TEST_RESULT=$?
+    wait $pid
+    local exit_code=$?
     
-    # Log test output
-    echo "$TEST_OUTPUT" >> $RESULTS_FILE
-    
-    # Process test result
-    if [ $TEST_RESULT -eq 0 ]; then
-        echo -e "${GREEN}✓ Test passed: ${TEST_NAME}${NC}"
-        echo "RESULT: PASSED" >> $RESULTS_FILE
+    if [ $exit_code -eq 0 ]; then
+        echo -e "${GREEN}✓ Test passed: ${test_name}${NC}"
+        echo "RESULT: PASSED" >> $log_file
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
-        echo -e "${RED}✗ Test failed: ${TEST_NAME}${NC}"
-        echo "RESULT: FAILED" >> $RESULTS_FILE
+        echo -e "${RED}✗ Test failed: ${test_name}${NC}"
+        echo "RESULT: FAILED" >> $log_file
         FAILED_TESTS=$((FAILED_TESTS + 1))
     fi
     
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    # Append test output to main log
+    echo "Running test: $test_name" >> $RESULTS_FILE
+    echo "----------------------------------------" >> $RESULTS_FILE
+    cat $log_file >> $RESULTS_FILE
     echo "" >> $RESULTS_FILE
     echo "========================================" >> $RESULTS_FILE
     echo "" >> $RESULTS_FILE
-    echo
+    
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+}
+
+# Run tests in parallel with a maximum of MAX_CONCURRENT tests at a time
+for TEST_SCRIPT in $TEST_SCRIPTS; do
+    TEST_NAME=$(basename "$TEST_SCRIPT")
+    LOG_FILE="results/${TEST_NAME}.log"
+    
+    # Check if we're already running MAX_CONCURRENT tests
+    while [ ${#PIDS[@]} -ge $MAX_CONCURRENT ]; do
+        # Wait for any test to finish
+        for i in "${!PIDS[@]}"; do
+            if ! kill -0 ${PIDS[$i]} 2>/dev/null; then
+                # This test has finished
+                wait_for_test ${PIDS[$i]} ${TEST_NAMES[$i]} "results/${TEST_NAMES[$i]}.log"
+                # Remove this test from the arrays
+                unset PIDS[$i]
+                unset TEST_NAMES[$i]
+                # Re-index the arrays
+                PIDS=("${PIDS[@]}")
+                TEST_NAMES=("${TEST_NAMES[@]}")
+                break
+            fi
+        done
+        # If we still have MAX_CONCURRENT tests running, wait a bit
+        if [ ${#PIDS[@]} -ge $MAX_CONCURRENT ]; then
+            sleep 1
+        fi
+    done
+    
+    # Start a new test
+    echo -e "${YELLOW}Starting test: ${TEST_NAME}${NC}"
+    "$TEST_SCRIPT" > "$LOG_FILE" 2>&1 &
+    PID=$!
+    PIDS+=($PID)
+    TEST_NAMES+=($TEST_NAME)
+done
+
+# Wait for remaining tests to finish
+for i in "${!PIDS[@]}"; do
+    wait_for_test ${PIDS[$i]} ${TEST_NAMES[$i]} "results/${TEST_NAMES[$i]}.log"
 done
 
 # Generate summary report
@@ -130,7 +173,7 @@ EOF
 # Add test results to HTML report
 for TEST_SCRIPT in $TEST_SCRIPTS; do
     TEST_NAME=$(basename "$TEST_SCRIPT")
-    if grep -q "Running test: $TEST_NAME.*RESULT: PASSED" $RESULTS_FILE; then
+    if grep -q "RESULT: PASSED" "results/${TEST_NAME}.log" 2>/dev/null; then
         RESULT="<span class=\"passed\">PASSED</span>"
     else
         RESULT="<span class=\"failed\">FAILED</span>"
@@ -156,6 +199,32 @@ echo -e "Failed tests: ${RED}${FAILED_TESTS}${NC}"
 echo
 echo -e "Reports generated in ${YELLOW}results/${NC} directory"
 echo
+
+# Clean up any leftover Docker resources
+echo -e "${YELLOW}Cleaning up any leftover Docker resources...${NC}"
+# Find and remove any test-specific docker-compose files
+find "$TEST_DIR" -name "docker-compose.*_test.sh.yml" -type f -delete
+
+# Stop and remove any leftover containers from test projects
+echo -e "${YELLOW}Stopping and removing any leftover containers...${NC}"
+# Get a list of all test project names
+TEST_PROJECTS=$(docker ps -a --format "{{.Names}}" | grep "test_.*_test" | cut -d'-' -f1 | sort -u)
+for PROJECT in $TEST_PROJECTS; do
+  echo -e "${YELLOW}Stopping project: $PROJECT${NC}"
+  docker-compose -p "$PROJECT" down -v 2>/dev/null || true
+done
+
+# Remove any leftover containers that weren't caught by the project cleanup
+echo -e "${YELLOW}Removing any remaining test containers...${NC}"
+docker ps -a | grep "test_.*_test" | awk '{print $1}' | xargs -r docker rm -f
+
+# Remove any test-specific networks
+echo -e "${YELLOW}Removing any leftover networks...${NC}"
+docker network prune -f --filter "name=test-network-*" > /dev/null 2>&1
+
+# Remove any test-specific volumes
+echo -e "${YELLOW}Removing any leftover volumes...${NC}"
+docker volume prune -f --filter "name=postgres_data_*" --filter "name=redis_data_*" > /dev/null 2>&1
 
 # Exit with appropriate status code
 if [ $FAILED_TESTS -eq 0 ]; then
