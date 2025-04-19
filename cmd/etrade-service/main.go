@@ -27,7 +27,7 @@ func main() {
 	dbName := getEnv("DB_NAME", "trustainvest")
 	etradeConsumerKey := getEnv("ETRADE_CONSUMER_KEY", "")
 	etradeConsumerSecret := getEnv("ETRADE_CONSUMER_SECRET", "")
-	etradeCallbackURL := getEnv("ETRADE_CALLBACK_URL", "http://localhost:3001/etrade/callback")
+	etradeCallbackURL := getEnv("ETRADE_CALLBACK_URL", "oob")
 	etradeSandbox := getEnv("ETRADE_SANDBOX", "true") == "true"
 
 	// Validate required environment variables

@@ -203,16 +203,48 @@ def get_verification_code(auth_url, username, password):
             print(f"Verification code: {verifier}", file=sys.stderr)
             return verifier
         else:
-            # Check if the verification code is in the page content (sometimes it's displayed on the page)
+            # Check if the verification code is in the page content (for OOB flow)
             try:
                 page_source = driver.page_source
                 # Look for text that might contain the verification code
                 import re
-                verifier_match = re.search(r'verification code[:\s]+([a-zA-Z0-9]+)', page_source, re.IGNORECASE)
-                if verifier_match:
-                    verifier = verifier_match.group(1)
-                    print(f"Found verification code in page content: {verifier}", file=sys.stderr)
-                    return verifier
+                
+                # Try different patterns to find the verification code
+                patterns = [
+                    r'verification code[:\s]+([a-zA-Z0-9]+)',  # Standard format
+                    r'code[:\s]+([a-zA-Z0-9]+)',              # Simple "code: XXXXX" format
+                    r'verifier[:\s]+([a-zA-Z0-9]+)',          # "verifier: XXXXX" format
+                    r'<div[^>]*class="code"[^>]*>([a-zA-Z0-9]+)</div>',  # Code in a div with class="code"
+                    r'<[^>]*>([a-zA-Z0-9]{5,8})</[^>]*>',     # Any tag containing just a code-like string
+                    r'([a-zA-Z0-9]{5,8})'                     # Last resort: any code-like string
+                ]
+                
+                for pattern in patterns:
+                    verifier_match = re.search(pattern, page_source, re.IGNORECASE)
+                    if verifier_match:
+                        verifier = verifier_match.group(1)
+                        print(f"Found verification code in page content using pattern '{pattern}': {verifier}", file=sys.stderr)
+                        return verifier
+                
+                # If we still haven't found it, look for any element that might contain the code
+                try:
+                    # Look for elements that might contain the verification code
+                    code_elements = driver.find_elements(By.XPATH, 
+                        "//div[contains(@class, 'code')] | //span[contains(@class, 'code')] | " +
+                        "//div[contains(text(), 'code')] | //p[contains(text(), 'code')] | " +
+                        "//div[contains(text(), 'verification')] | //p[contains(text(), 'verification')]")
+                    
+                    for element in code_elements:
+                        text = element.text.strip()
+                        print(f"Potential code element text: {text}", file=sys.stderr)
+                        # Extract just the code part if it contains other text
+                        code_match = re.search(r'([a-zA-Z0-9]{5,8})', text)
+                        if code_match:
+                            verifier = code_match.group(1)
+                            print(f"Found verification code in element: {verifier}", file=sys.stderr)
+                            return verifier
+                except Exception as e:
+                    print(f"Error searching for code elements: {e}", file=sys.stderr)
             except Exception as e:
                 print(f"Error searching for verification code in page content: {e}", file=sys.stderr)
             

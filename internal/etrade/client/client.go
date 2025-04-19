@@ -70,6 +70,12 @@ func (c *ETradeClient) SetCredentials(accessToken, tokenSecret string) {
 
 // GetAuthorizationURL generates an authorization URL for the user to authorize the application
 func (c *ETradeClient) GetAuthorizationURL(callbackURL string) (string, string, error) {
+	// Always use "oob" as the callback URL for E-Trade
+	if callbackURL != "oob" {
+		fmt.Printf("Warning: Callback URL is not 'oob', it is '%s'. Forcing to 'oob'.\n", callbackURL)
+		callbackURL = "oob"
+	}
+
 	// Create the OAuth config with the provided callback URL
 	config := oauth1.Config{
 		ConsumerKey:    c.consumerKey,
@@ -82,11 +88,28 @@ func (c *ETradeClient) GetAuthorizationURL(callbackURL string) (string, string, 
 		},
 	}
 
+	// Create a debug transport for logging
+	originalTransport := http.DefaultTransport
+	debugTransport := &debugTransport{
+		originalTransport: originalTransport,
+	}
+
+	// Override the default transport in the OAuth library
+	http.DefaultTransport = debugTransport
+	defer func() {
+		// Restore the original transport when done
+		http.DefaultTransport = originalTransport
+	}()
+
 	// Get the request token
-	requestToken, _, err := config.RequestToken()
+	fmt.Println("Getting request token with callback URL:", callbackURL)
+	requestToken, requestSecret, err := config.RequestToken()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get request token: %w", err)
 	}
+
+	fmt.Println("Got request token:", requestToken)
+	fmt.Println("Got request secret:", requestSecret)
 
 	// Generate the authorization URL
 	authURL, err := config.AuthorizationURL(requestToken)
@@ -94,7 +117,33 @@ func (c *ETradeClient) GetAuthorizationURL(callbackURL string) (string, string, 
 		return "", "", fmt.Errorf("failed to generate authorization URL: %w", err)
 	}
 
+	fmt.Println("Generated authorization URL:", authURL.String())
+
 	return requestToken, authURL.String(), nil
+}
+
+// debugTransport is a custom http.RoundTripper that logs requests and responses
+type debugTransport struct {
+	originalTransport http.RoundTripper
+}
+
+func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Log the request
+	fmt.Printf("DEBUG: Request URL: %s\n", req.URL.String())
+	fmt.Printf("DEBUG: Request Method: %s\n", req.Method)
+	fmt.Printf("DEBUG: Request Headers: %v\n", req.Header)
+
+	// Perform the request using the original transport
+	resp, err := d.originalTransport.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Log the response
+	fmt.Printf("DEBUG: Response Status: %s\n", resp.Status)
+	fmt.Printf("DEBUG: Response Headers: %v\n", resp.Header)
+
+	return resp, nil
 }
 
 // ExchangeRequestTokenForAccessToken exchanges a request token for an access token
@@ -276,6 +325,23 @@ func (c *ETradeClient) enrichAccountWithBalance(account *models.ETradeAccount) e
 	account.Currency = response.BalanceResponse.AccountBalance.Currency
 
 	return nil
+}
+
+// generateNonce generates a random string for OAuth1 nonce
+func generateNonce() string {
+	// Generate a random string for the nonce
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 32)
+	for i := range b {
+		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
+	}
+	return string(b)
+}
+
+// generateTimestamp generates a timestamp for OAuth1
+func generateTimestamp() string {
+	// Generate a timestamp in seconds since the Unix epoch
+	return fmt.Sprintf("%d", time.Now().Unix())
 }
 
 // enrichAccountWithPositions adds position information to an account

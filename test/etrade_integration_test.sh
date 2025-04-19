@@ -101,7 +101,7 @@ else
   echo "Using E-Trade credentials from environment variables."
 fi
 
-CALLBACK_URL="http://localhost:3002/etrade/callback"
+CALLBACK_URL="oob"
 
 # Function to make API calls
 make_api_call() {
