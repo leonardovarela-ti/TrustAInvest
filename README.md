@@ -13,11 +13,13 @@ TrustAInvest is a comprehensive financial platform that provides investment and 
   - [Running the System](#running-the-system)
   - [Rebuilding the System](#rebuilding-the-system)
 - [API Documentation](#api-documentation)
+  - [E-Trade Integration](#e-trade-integration)
   - [User Registration](#user-registration)
   - [Email Verification](#email-verification)
   - [KYC Verification](#kyc-verification)
 - [Running Tests](#running-tests)
   - [Integration Tests](#integration-tests)
+  - [E-Trade Integration Test Fix](#e-trade-integration-test-fix)
   - [KYC Status Update Fix](#kyc-status-update-fix)
   - [KYC Verifier Testing](#kyc-verifier-testing)
 - [Deployment](#deployment)
@@ -39,12 +41,14 @@ TrustAInvest is built on a microservices architecture, with each service respons
 - **KYC Verifier Service**: Provides an interface for KYC verification staff
 - **Notification Service**: Handles user notifications
 - **Trust Service**: Manages trust accounts and operations
+- **E-Trade Service**: Handles integration with E-Trade accounts
 
 ## Project Structure
 
 - `cmd/`: Contains the main applications for each service
   - `account-service/`: Manages user accounts and financial data
   - `document-service/`: Handles document storage and retrieval
+  - `etrade-service/`: Handles integration with E-Trade accounts
   - `investment-service/`: Manages investment products and transactions
   - `kyc-verifier-service/`: Interface for KYC verification staff
   - `kyc-worker/`: Processes Know Your Customer verification requests
@@ -164,6 +168,67 @@ To also run integration tests automatically:
 The automated script performs the same steps as the interactive one but exits with an error code if any step fails, making it suitable for automated environments.
 
 ## API Documentation
+
+### E-Trade Integration
+
+TrustAInvest now supports integration with E-Trade accounts, allowing customers to link their existing E-Trade accounts to the platform. This integration uses the E-Trade API to fetch account information, balances, and positions.
+
+#### Setting Up E-Trade Integration
+
+1. Configure E-Trade API credentials in the `.env` file:
+   ```
+   # Copy the example file
+   cp .env.example .env
+   
+   # Update with your E-Trade API keys
+   ETRADE_SANDBOX_CONSUMER_KEY=your_sandbox_key
+   ETRADE_SANDBOX_CONSUMER_SECRET=your_sandbox_secret
+   ETRADE_CALLBACK_URL=http://localhost:3002/etrade/callback
+   ```
+
+2. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Test the integration:
+   ```bash
+   # Make the script executable (if not already)
+   chmod +x test/etrade_integration_test.sh
+   
+   # Start the services
+   docker-compose up -d
+   
+   # Run the test script
+   ./test/etrade_integration_test.sh
+   ```
+
+   Note: The test script connects directly to the etrade-service on port 8087. You can also access the API through the account-service on port 8081.
+
+For detailed documentation on the E-Trade integration, see the [E-Trade Integration Guide](docs/etrade-integration.md).
+
+#### E-Trade Integration Test Fix
+
+The E-Trade integration test was failing due to a foreign key constraint violation. This issue has been fixed with:
+
+1. Modified test script to use an existing user ID from the database
+2. Added automated OAuth verification using Selenium
+3. Implemented callback simulation to test the entire OAuth flow
+4. Enhanced error handling and manual authorization instructions
+
+To run the fixed test, you have two options:
+
+```bash
+# Option 1: Standard test with web callback
+./test/etrade_integration_test.sh
+
+# Option 2: Test with out-of-band (OOB) callback
+./test/etrade_integration_test_oob.sh
+```
+
+For more details about the issue and the fix, see:
+- [E-Trade Test Fix documentation](docs/etrade-test-fix.md)
+- [E-Trade Integration Fix Summary](docs/etrade-integration-fix-summary.md)
 
 ### User Registration
 
@@ -371,6 +436,38 @@ The test runner generates detailed reports in the `test/results/` directory, inc
 - HTML report with test results and statistics
 
 For more information about the tests, see the [test README](test/README.md).
+
+### E-Trade Integration Test Fix
+
+The E-Trade integration test was failing with a foreign key constraint error:
+
+```
+Response: {"error":"failed to store request token: ERROR: insert or update on table \"auth_tokens\" violates foreign key constraint \"auth_tokens_user_id_fkey\" (SQLSTATE 23503)"}
+```
+
+This issue has been fixed with:
+
+1. Modified test script to use an existing user ID from the database
+2. Added automated OAuth verification using Selenium
+3. Implemented callback simulation to test the entire OAuth flow
+
+To run the fixed test:
+
+```bash
+# Make the script executable
+chmod +x test/etrade_integration_test.sh
+
+# Run the test
+./test/etrade_integration_test.sh
+```
+
+The test now:
+- Automatically finds or creates a demo user in the database
+- Uses that user ID for the E-Trade API calls
+- Automates the OAuth verification process
+- Simulates the callback from E-Trade
+
+For more details about the issue and the fix, see the [E-Trade Test Fix documentation](docs/etrade-test-fix.md).
 
 ### KYC Status Update Fix
 

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -76,6 +79,15 @@ func main() {
 		userAccounts := v1.Group("/users/:userId/accounts")
 		{
 			userAccounts.GET("", getUserAccounts)
+		}
+
+		// E-Trade integration routes
+		etrade := v1.Group("/etrade")
+		{
+			etrade.POST("/auth/initiate", initiateETradeAuth)
+			etrade.POST("/auth/callback", etradeAuthCallback)
+			etrade.GET("/accounts", getETradeAccounts)
+			etrade.POST("/accounts/link", linkETradeAccount)
 		}
 	}
 
@@ -342,4 +354,311 @@ func deleteAccount(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// E-Trade integration handler functions
+
+// initiateETradeAuth initiates the OAuth flow for E-Trade
+func initiateETradeAuth(c *gin.Context) {
+	// Get the E-Trade service URL from environment variable
+	etradeServiceURL := getEnv("ETRADE_SERVICE_URL", "http://etrade-service:8080")
+
+	// Forward the request to the E-Trade service
+	var req struct {
+		UserID      string `json:"user_id" binding:"required"`
+		ConsumerKey string `json:"consumer_key" binding:"required"`
+		CallbackURL string `json:"callback_url" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", etradeServiceURL+"/api/v1/etrade/auth/initiate", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var authResp struct {
+		RequestToken string `json:"request_token"`
+		AuthURL      string `json:"auth_url"`
+	}
+	if err := json.Unmarshal(respBody, &authResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, authResp)
+}
+
+// etradeAuthCallback handles the callback from E-Trade after user authorization
+func etradeAuthCallback(c *gin.Context) {
+	// Get the E-Trade service URL from environment variable
+	etradeServiceURL := getEnv("ETRADE_SERVICE_URL", "http://etrade-service:8080")
+
+	// Forward the request to the E-Trade service
+	var req struct {
+		RequestToken string `json:"request_token" binding:"required"`
+		Verifier     string `json:"verifier" binding:"required"`
+		UserID       string `json:"user_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", etradeServiceURL+"/api/v1/etrade/auth/callback", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var authResp struct {
+		Success     bool   `json:"success"`
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(respBody, &authResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, authResp)
+}
+
+// getETradeAccounts retrieves the list of accounts for the authenticated user
+func getETradeAccounts(c *gin.Context) {
+	// Get the E-Trade service URL from environment variable
+	etradeServiceURL := getEnv("ETRADE_SERVICE_URL", "http://etrade-service:8080")
+
+	// Get the user ID from the query parameter
+	userID := c.Query("user_id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("GET", etradeServiceURL+"/api/v1/etrade/accounts?user_id="+userID, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var accountsResp struct {
+		Accounts []struct {
+			AccountID        string    `json:"account_id"`
+			AccountName      string    `json:"account_name"`
+			AccountType      string    `json:"account_type"`
+			InstitutionID    string    `json:"institution_id"`
+			InstitutionName  string    `json:"institution_name"`
+			Balance          float64   `json:"balance"`
+			Currency         string    `json:"currency"`
+			LastUpdated      time.Time `json:"last_updated"`
+			Status           string    `json:"status"`
+			AccountPositions []struct {
+				Symbol        string    `json:"symbol"`
+				Quantity      float64   `json:"quantity"`
+				CostBasis     float64   `json:"cost_basis"`
+				MarketValue   float64   `json:"market_value"`
+				GainLoss      float64   `json:"gain_loss"`
+				GainLossPerc  float64   `json:"gain_loss_perc"`
+				LastPrice     float64   `json:"last_price"`
+				LastPriceTime time.Time `json:"last_price_time"`
+			} `json:"account_positions,omitempty"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal(respBody, &accountsResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, accountsResp)
+}
+
+// linkETradeAccount links an E-Trade account to a TrustAInvest account
+func linkETradeAccount(c *gin.Context) {
+	// Get the E-Trade service URL from environment variable
+	etradeServiceURL := getEnv("ETRADE_SERVICE_URL", "http://etrade-service:8080")
+
+	// Forward the request to the E-Trade service
+	var req struct {
+		UserID      string `json:"user_id" binding:"required"`
+		AccountID   string `json:"account_id" binding:"required"`
+		AccountName string `json:"account_name,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", etradeServiceURL+"/api/v1/etrade/accounts/link", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var linkResp struct {
+		Success    bool   `json:"success"`
+		Message    string `json:"message,omitempty"`
+		AccountID  string `json:"account_id,omitempty"`
+		InternalID string `json:"internal_id,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &linkResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, linkResp)
+}
+
+// getEnv gets an environment variable or returns a default value
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
