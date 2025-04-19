@@ -1,8 +1,0 @@
-TrustAInvest Integration Tests Summary
-Run at: Fri Apr 18 22:53:01 CDT 2025
-=======================================
-Total tests:  4
-Passed tests: 4
-Failed tests: 0
-
-All tests passed!
