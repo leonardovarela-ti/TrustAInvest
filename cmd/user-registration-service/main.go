@@ -19,6 +19,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/leonardovarelatrust/TrustAInvest.com/internal/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -79,6 +80,9 @@ func main() {
 	}
 	log.Println("Connected to database")
 
+	// Initialize session service
+	sessionService := auth.NewSessionService(db)
+
 	// Set up Gin router
 	router := gin.Default()
 
@@ -109,8 +113,10 @@ func main() {
 		// Auth routes
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/login", loginHandler)
-			auth.GET("/me", authMiddleware(), getCurrentUserHandler)
+			auth.POST("/login", func(c *gin.Context) {
+				loginHandler(c, sessionService)
+			})
+			auth.GET("/me", authMiddleware(sessionService), getCurrentUserHandler)
 		}
 	}
 
@@ -751,6 +757,7 @@ type LoginRequest struct {
 // LoginResponse represents the login response
 type LoginResponse struct {
 	Token     string `json:"token"`
+	SessionID string `json:"session_id"`
 	ExpiresIn int64  `json:"expires_in"`
 	UserID    string `json:"user_id"`
 	Username  string `json:"username"`
@@ -767,7 +774,7 @@ type Claims struct {
 }
 
 // loginHandler handles user login
-func loginHandler(c *gin.Context) {
+func loginHandler(c *gin.Context, sessionService *auth.SessionService) {
 	var request LoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -840,8 +847,26 @@ func loginHandler(c *gin.Context) {
 		return
 	}
 
+	// Generate session ID
+	sessionID := uuid.New().String()
+
+	// Create a new session and invalidate any existing ones
+	sessionID, err = sessionService.CreateSession(
+		c.Request.Context(),
+		user.ID,
+		tokenString, // Use the JWT token as the token ID
+		c.GetHeader("User-Agent"),
+		c.ClientIP(),
+		time.Now().Add(24*time.Hour),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
 	c.JSON(http.StatusOK, LoginResponse{
 		Token:     tokenString,
+		SessionID: sessionID,
 		ExpiresIn: 24 * 60 * 60,
 		UserID:    user.ID,
 		Username:  user.Username,
@@ -850,7 +875,7 @@ func loginHandler(c *gin.Context) {
 }
 
 // authMiddleware is a middleware function that validates JWT tokens
-func authMiddleware() gin.HandlerFunc {
+func authMiddleware(sessionService *auth.SessionService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the Authorization header
 		authHeader := c.GetHeader("Authorization")
@@ -885,10 +910,34 @@ func authMiddleware() gin.HandlerFunc {
 
 		// Extract claims
 		if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+			// Get the session ID from the request header
+			sessionID := c.GetHeader("X-Session-ID")
+			if sessionID == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Session ID is required"})
+				c.Abort()
+				return
+			}
+
+			// Validate the session
+			isValid, err := sessionService.ValidateSession(c.Request.Context(), sessionID)
+			if err != nil || !isValid {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired session"})
+				c.Abort()
+				return
+			}
+
+			// Update session activity
+			err = sessionService.UpdateSessionActivity(c.Request.Context(), sessionID)
+			if err != nil {
+				// Log the error but continue
+				log.Printf("Error updating session activity: %v", err)
+			}
+
 			// Set user info in context
 			c.Set("userID", claims.UserID)
 			c.Set("username", claims.Username)
 			c.Set("email", claims.Email)
+			c.Set("sessionID", sessionID)
 			c.Next()
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})

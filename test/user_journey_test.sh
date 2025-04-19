@@ -55,7 +55,7 @@ cat > register.json << EOF
   "username": "$USERNAME",
   "email": "$EMAIL",
   "password": "securePassword123!",
-  "phone_number": "+15551234567",
+  "phone_number": "5551234567",
   "first_name": "Test",
   "last_name": "User",
   "date_of_birth": "1990-01-15",

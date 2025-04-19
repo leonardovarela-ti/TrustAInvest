@@ -1,15 +1,15 @@
 services:
   postgres:
-    image: postgres:14
+    image: postgres:15-alpine
     ports:
-      - "15432:5432"
+      - "5433:5432"
     environment:
-      POSTGRES_USER: trustainvest
-      POSTGRES_PASSWORD: trustainvest
-      POSTGRES_DB: trustainvest
+      - POSTGRES_USER=trustainvest
+      - POSTGRES_PASSWORD=trustainvest
+      - POSTGRES_DB=trustainvest
     volumes:
+      - postgres_data:/var/lib/postgresql/data
       - ../scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-      - ../migrations:/docker-entrypoint-initdb.d/migrations
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U trustainvest"]
       interval: 5s
@@ -19,9 +19,11 @@ services:
       - test-network
 
   redis:
-    image: redis:6
+    image: redis:7-alpine
     ports:
-      - "16379:6379"
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -57,17 +59,19 @@ services:
   user-registration-service:
     build:
       context: ..
-      dockerfile: ./Dockerfile.registration
+      dockerfile: ./Dockerfile.registration.test
     ports:
       - "18086:8080"
     environment:
-      - SERVER_PORT=8080
-      - SERVER_HOST=0.0.0.0
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=trustainvest
       - DB_PASSWORD=trustainvest
       - DB_NAME=trustainvest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
       - AWS_ENDPOINT=http://localstack:14566
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
@@ -77,8 +81,6 @@ services:
       - NOTIFICATION_QUEUE_URL=http://localstack:14566/000000000000/notification-queue
       - NOTIFICATION_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:notification-topic
       - KMS_KEY_ID=alias/trustainvest-key
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
       - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest
       - LOG_LEVEL=debug
       - ENVIRONMENT=test
@@ -95,7 +97,7 @@ services:
   kyc-worker:
     build:
       context: ..
-      dockerfile: ./Dockerfile.kyc-worker
+      dockerfile: ./Dockerfile.kyc-worker.test
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -128,11 +130,18 @@ services:
       - test-network
 
   kyc-verifier-service:
-    image: trustainvest/kyc-verifier-service:test
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.kyc-verifier.test
     ports:
-      - "18090:8080"
+      - "18081:8081"
     environment:
-      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=trustainvest
+      - DB_PASSWORD=trustainvest
+      - DB_NAME=trustainvest
+      - PORT=8081
       - DATABASE_URL=postgres://trustainvest:trustainvest@postgres:5432/trustainvest?sslmode=disable
       - JWT_SECRET=test-jwt-secret
       - CORS_ALLOWED_ORIGINS=*
@@ -143,6 +152,10 @@ services:
         condition: service_healthy
     networks:
       - test-network
+
+volumes:
+  postgres_data:
+  redis_data:
 
 networks:
   test-network:

@@ -1,175 +1,231 @@
 TrustAInvest Integration Test Results
-Run at: Thu Apr 17 22:42:15 CDT 2025
+Run at: Fri Apr 18 22:50:59 CDT 2025
 =======================================
 
 Running test: failed_registration_test.sh
 ----------------------------------------
 [0;33mStarting failed registration test...[0m
 [0;33mStep 1: Starting the system...[0m
+ Volume test_redis_data  Removing
+ Volume test_postgres_data  Removing
+ Volume test_redis_data  Removed
+ Volume test_postgres_data  Removed
 [0;33mStarting services (this may take a minute)...[0m
 Compose can now delegate builds to bake for better performance.
  To do so, set COMPOSE_BAKE=true.
 #0 building with "desktop-linux" instance using docker driver
 
-#1 [kyc-worker internal] load build definition from Dockerfile.kyc-worker
-#1 transferring dockerfile: 667B done
+#1 [kyc-worker internal] load build definition from Dockerfile.kyc-worker.test
+#1 transferring dockerfile: 559B done
 #1 DONE 0.0s
 
-#2 [user-registration-service internal] load build definition from Dockerfile.registration
-#2 transferring dockerfile: 758B done
+#2 [kyc-verifier-service internal] load build definition from Dockerfile.kyc-verifier.test
+#2 transferring dockerfile: 652B done
 #2 DONE 0.0s
 
-#3 [user-registration-service internal] load metadata for docker.io/library/golang:1.23-alpine
-#3 DONE 0.4s
+#3 [user-registration-service internal] load build definition from Dockerfile.registration.test
+#3 transferring dockerfile: 621B done
+#3 DONE 0.0s
 
-#4 [user-registration-service internal] load metadata for docker.io/library/alpine:3.16
-#4 DONE 0.3s
+#4 [kyc-worker auth] library/alpine:pull token for registry-1.docker.io
+#4 DONE 0.0s
 
-#5 [kyc-worker internal] load .dockerignore
-#5 transferring context: 2B done
+#5 [kyc-worker auth] library/golang:pull token for registry-1.docker.io
 #5 DONE 0.0s
 
-#6 [user-registration-service internal] load .dockerignore
-#6 transferring context: 2B done
-#6 DONE 0.0s
+#6 [user-registration-service internal] load metadata for docker.io/library/alpine:3.19
+#6 DONE 0.5s
 
-#7 [user-registration-service builder 1/7] FROM docker.io/library/golang:1.23-alpine@sha256:b7486658b87d34ecf95125e5b97e8dfe86c21f712aa36fc0c702e5dc41dc63e1
-#7 resolve docker.io/library/golang:1.23-alpine@sha256:b7486658b87d34ecf95125e5b97e8dfe86c21f712aa36fc0c702e5dc41dc63e1 done
-#7 DONE 0.0s
+#7 [kyc-worker internal] load metadata for docker.io/library/golang:1.24-alpine
+#7 DONE 0.5s
 
-#8 [user-registration-service stage-1 1/4] FROM docker.io/library/alpine:3.16@sha256:452e7292acee0ee16c332324d7de05fa2c99f9994ecc9f0779c602916a672ae4
-#8 resolve docker.io/library/alpine:3.16@sha256:452e7292acee0ee16c332324d7de05fa2c99f9994ecc9f0779c602916a672ae4 done
+#8 [kyc-verifier-service internal] load .dockerignore
+#8 transferring context: 2B done
 #8 DONE 0.0s
 
-#9 [user-registration-service internal] load build context
-#9 transferring context: 239.21kB 0.1s done
-#9 DONE 0.1s
+#9 [user-registration-service internal] load .dockerignore
+#9 transferring context: 2B done
+#9 DONE 0.0s
 
-#10 [kyc-worker internal] load build context
-#10 transferring context: 239.21kB 0.1s done
-#10 DONE 0.1s
+#10 [kyc-worker internal] load .dockerignore
+#10 transferring context: 2B done
+#10 DONE 0.0s
 
-#11 [kyc-worker builder 4/7] COPY go.mod go.sum* ./
-#11 CACHED
+#11 [kyc-worker stage-1 1/3] FROM docker.io/library/alpine:3.19@sha256:e5d0aea7f7d2954678a9a6269ca2d06e06591881161961ea59e974dff3f12377
+#11 resolve docker.io/library/alpine:3.19@sha256:e5d0aea7f7d2954678a9a6269ca2d06e06591881161961ea59e974dff3f12377 0.0s done
+#11 DONE 0.0s
 
-#12 [user-registration-service builder 5/7] RUN go mod download
-#12 CACHED
+#12 [kyc-verifier-service builder 1/6] FROM docker.io/library/golang:1.24-alpine@sha256:7772cb5322baa875edd74705556d08f0eeca7b9c4b5367754ce3f2f00041ccee
+#12 resolve docker.io/library/golang:1.24-alpine@sha256:7772cb5322baa875edd74705556d08f0eeca7b9c4b5367754ce3f2f00041ccee 0.0s done
+#12 DONE 0.0s
 
-#13 [user-registration-service builder 5/7] RUN go mod download
-#13 CACHED
+#13 [kyc-worker internal] load build context
+#13 transferring context: 262.12kB 0.1s done
+#13 DONE 0.1s
 
-#14 [user-registration-service builder 3/7] RUN apk add --no-cache git
-#14 CACHED
+#14 [kyc-verifier-service internal] load build context
+#14 transferring context: 262.12kB 0.1s done
+#14 DONE 0.1s
 
-#15 [user-registration-service builder 4/7] COPY go.mod go.sum* ./
-#15 CACHED
+#15 [user-registration-service internal] load build context
+#15 transferring context: 262.12kB 0.1s done
+#15 DONE 0.1s
 
-#16 [user-registration-service builder 2/7] WORKDIR /app
+#16 [kyc-worker builder 2/6] WORKDIR /app
 #16 CACHED
 
-#17 [kyc-worker builder 6/7] COPY . .
-#17 ...
+#17 [kyc-worker builder 3/6] COPY go.mod go.sum ./
+#17 CACHED
 
-#18 [user-registration-service builder 6/7] COPY . .
-#18 DONE 2.3s
+#18 [kyc-verifier-service builder 4/6] RUN go mod download
+#18 CACHED
 
-#19 [user-registration-service builder 7/7] RUN CGO_ENABLED=0 GOOS=linux go build -o /app/user-registration-service ./cmd/user-registration-service
-#19 ...
+#19 [kyc-worker builder 5/6] COPY . .
+#19 DONE 1.7s
 
-#17 [kyc-worker builder 6/7] COPY . .
-#17 DONE 5.0s
+#20 [kyc-verifier-service builder 3/6] COPY go.mod go.sum ./
+#20 CACHED
 
-#20 [kyc-worker builder 7/7] RUN CGO_ENABLED=0 GOOS=linux go build -o /app/kyc-worker ./cmd/kyc-worker
-#20 DONE 6.9s
-
-#19 [user-registration-service builder 7/7] RUN CGO_ENABLED=0 GOOS=linux go build -o /app/user-registration-service ./cmd/user-registration-service
-#19 ...
-
-#21 [kyc-worker stage-1 2/4] WORKDIR /app
+#21 [kyc-verifier-service builder 4/6] RUN go mod download
 #21 CACHED
 
-#22 [kyc-worker stage-1 3/4] RUN apk add --no-cache ca-certificates tzdata
+#22 [kyc-verifier-service builder 5/6] COPY . .
 #22 CACHED
 
-#23 [kyc-worker stage-1 4/4] COPY --from=builder /app/kyc-worker .
+#23 [user-registration-service builder 4/6] RUN go mod download
 #23 CACHED
 
-#24 [kyc-worker] exporting to image
-#24 exporting layers done
-#24 exporting manifest sha256:a03c7646fb53f4688a543b1de0a281ac2e86c6ef85dc6acebd315484d4fe2768 done
-#24 exporting config sha256:c5faaf4cd979c324dc6446a16c385f7dc3bb2cd5a7fc617ce07dad522f1da717 done
-#24 exporting attestation manifest sha256:692367cf4a454d44f41b1d62a47969e62134404c5170c461d510af4490fce783 0.0s done
-#24 exporting manifest list sha256:e722d42e0166060d8b2e3d558d1afae9b37065262f824af35f27ab46580de647 done
-#24 naming to docker.io/library/test-kyc-worker:latest done
-#24 unpacking to docker.io/library/test-kyc-worker:latest done
-#24 DONE 0.0s
+#24 [user-registration-service builder 5/6] COPY . .
+#24 CACHED
 
-#25 [kyc-worker] resolving provenance for metadata file
-#25 DONE 0.0s
+#16 [user-registration-service builder 2/6] WORKDIR /app
+#16 CACHED
 
-#19 [user-registration-service builder 7/7] RUN CGO_ENABLED=0 GOOS=linux go build -o /app/user-registration-service ./cmd/user-registration-service
-#19 DONE 10.0s
+#25 [user-registration-service builder 3/6] COPY go.mod go.sum ./
+#25 CACHED
 
-#22 [user-registration-service stage-1 3/4] RUN apk add --no-cache ca-certificates tzdata
-#22 CACHED
+#26 [user-registration-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o user-registration-service ./cmd/user-registration-service
+#26 ...
 
-#21 [user-registration-service stage-1 2/4] WORKDIR /app
-#21 CACHED
+#27 [kyc-verifier-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-verifier-service ./cmd/kyc-verifier-service
+#27 ...
 
-#26 [user-registration-service stage-1 4/4] COPY --from=builder /app/user-registration-service .
-#26 CACHED
+#28 [kyc-worker builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-worker ./cmd/kyc-worker
+#28 DONE 10.4s
 
-#27 [user-registration-service] exporting to image
-#27 exporting layers done
-#27 exporting manifest sha256:4ae83b7e7878a0034d14fe8504f097de5018485fb567aa3fd87ecec6ed4b65c6 done
-#27 exporting config sha256:2f0ee05cc85fe74f1148798948ef0a7ed0daad0142cb3364e3450a9dbd615b48 done
-#27 exporting attestation manifest sha256:99d1f5437a1d0827f24e4dd7305a3d8c62718b17d1b9dd927bf193fbcf92bd95 done
-#27 exporting manifest list sha256:bfcc0ba943f79754e38d61ba9bd77dbbb773ca25e9ce261d30cf78d5cfa1314d done
-#27 naming to docker.io/library/test-user-registration-service:latest done
-#27 unpacking to docker.io/library/test-user-registration-service:latest done
-#27 DONE 0.0s
+#27 [kyc-verifier-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-verifier-service ./cmd/kyc-verifier-service
+#27 ...
 
-#28 [user-registration-service] resolving provenance for metadata file
-#28 DONE 0.0s
+#29 [kyc-worker stage-1 2/3] WORKDIR /root/
+#29 CACHED
+
+#30 [kyc-worker stage-1 3/3] COPY --from=builder /app/kyc-worker .
+#30 CACHED
+
+#31 [kyc-worker] exporting to image
+#31 exporting layers done
+#31 exporting manifest sha256:eebfc763f16f38b7238d6764401806faa6f93b41c44ca1db18037ad89e7bfeaa done
+#31 exporting config sha256:48f2e1e1df15250e293a9f33465e3bc6f42f2ae3e96c751eeaa201c45d3dae8c done
+#31 exporting attestation manifest sha256:4c9dde754111df6dae6ad99839b6eeeef7d1d2e50a26664c26134399f45be510 0.0s done
+#31 exporting manifest list sha256:b25ed2ca56c044402978ee5bc87eebec8029d03a36e90fb375a40dab36eb4af2
+#31 exporting manifest list sha256:b25ed2ca56c044402978ee5bc87eebec8029d03a36e90fb375a40dab36eb4af2 0.0s done
+#31 naming to docker.io/library/test-kyc-worker:latest done
+#31 unpacking to docker.io/library/test-kyc-worker:latest done
+#31 DONE 0.1s
+
+#32 [kyc-worker] resolving provenance for metadata file
+#32 DONE 0.0s
+
+#26 [user-registration-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o user-registration-service ./cmd/user-registration-service
+#26 ...
+
+#27 [kyc-verifier-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-verifier-service ./cmd/kyc-verifier-service
+#27 DONE 11.0s
+
+#29 [kyc-verifier-service stage-1 2/3] WORKDIR /root/
+#29 CACHED
+
+#33 [kyc-verifier-service stage-1 3/3] COPY --from=builder /app/kyc-verifier-service .
+#33 CACHED
+
+#34 [kyc-verifier-service] exporting to image
+#34 exporting layers done
+#34 exporting manifest sha256:7f537b519e835b8207f5087d0fee37147e3c166184b54622bccdfc4dbd9de1b2 done
+#34 exporting config sha256:f381c0d8d88cc891217394510c4bf36070ad2fc9f5e64a199abdee581881c458 done
+#34 exporting attestation manifest sha256:abc88f66d881bb3edc68faaa8b20d045d8d8261f0b8cb89b3f970befb2ce2ea8 0.0s done
+#34 exporting manifest list sha256:cee695222dffc00f58788686fe3908095325a172e9e15c8a77559d059ad1d39f 0.0s done
+#34 naming to docker.io/library/test-kyc-verifier-service:latest done
+#34 unpacking to docker.io/library/test-kyc-verifier-service:latest done
+#34 DONE 0.0s
+
+#35 [kyc-verifier-service] resolving provenance for metadata file
+#35 DONE 0.0s
+
+#26 [user-registration-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o user-registration-service ./cmd/user-registration-service
+#26 DONE 12.3s
+
+#29 [user-registration-service stage-1 2/3] WORKDIR /root/
+#29 CACHED
+
+#36 [user-registration-service stage-1 3/3] COPY --from=builder /app/user-registration-service .
+#36 CACHED
+
+#37 [user-registration-service] exporting to image
+#37 exporting layers done
+#37 exporting manifest sha256:1128a5f668959f2ff9d8a319a00917ec76a391d6043cb9dce95d23dc029fa944 done
+#37 exporting config sha256:7cf530751b1769f559c06f2cef436e45f8529d50e15703e994374e647234ea74 done
+#37 exporting attestation manifest sha256:e366b18921548f0ac9723a7f2c3a342d045d3ded902e4bddcc4d621a18fb565e done
+#37 exporting manifest list sha256:9b27c1b1a95bb3761536f55c1c8cd5d89141eb15a6739ba5b9abf7a27594c3e4 done
+#37 naming to docker.io/library/test-user-registration-service:latest done
+#37 unpacking to docker.io/library/test-user-registration-service:latest done
+#37 DONE 0.0s
+
+#38 [user-registration-service] resolving provenance for metadata file
+#38 DONE 0.0s
+ kyc-verifier-service  Built
  kyc-worker  Built
  user-registration-service  Built
  Network test-network  Creating
  Network test-network  Created
- Container test-postgres-1  Creating
+ Volume "test_redis_data"  Creating
+ Volume "test_redis_data"  Created
+ Volume "test_postgres_data"  Creating
+ Volume "test_postgres_data"  Created
  Container test-redis-1  Creating
  Container test-localstack-1  Creating
+ Container test-postgres-1  Creating
  Container test-localstack-1  Created
  Container test-redis-1  Created
  Container test-postgres-1  Created
  Container test-kyc-worker-1  Creating
  Container test-kyc-verifier-service-1  Creating
  Container test-user-registration-service-1  Creating
+ Container test-kyc-worker-1  Created
  Container test-kyc-verifier-service-1  Created
  Container test-user-registration-service-1  Created
- Container test-kyc-worker-1  Created
- Container test-postgres-1  Starting
  Container test-redis-1  Starting
+ Container test-postgres-1  Starting
  Container test-localstack-1  Starting
- Container test-localstack-1  Started
  Container test-redis-1  Started
  Container test-postgres-1  Started
+ Container test-postgres-1  Waiting
+ Container test-localstack-1  Started
+ Container test-localstack-1  Waiting
+ Container test-postgres-1  Waiting
  Container test-localstack-1  Waiting
  Container test-postgres-1  Waiting
  Container test-redis-1  Waiting
- Container test-postgres-1  Waiting
- Container test-localstack-1  Waiting
- Container test-postgres-1  Waiting
  Container test-postgres-1  Healthy
  Container test-postgres-1  Healthy
  Container test-kyc-verifier-service-1  Starting
- Container test-redis-1  Healthy
  Container test-postgres-1  Healthy
+ Container test-redis-1  Healthy
  Container test-localstack-1  Healthy
  Container test-kyc-worker-1  Starting
  Container test-localstack-1  Healthy
  Container test-user-registration-service-1  Starting
- Container test-kyc-verifier-service-1  Started
  Container test-kyc-worker-1  Started
+ Container test-kyc-verifier-service-1  Started
  Container test-user-registration-service-1  Started
 [0;33mWaiting for services to be ready...[0m
 [0;33mChecking if user-registration-service is up...[0m
@@ -193,14 +249,14 @@ Registration response: {"error":"First name cannot be empty"}
 Registration response: {"error":"First name cannot be empty"}
 [0;32mTest passed: Registration failed as expected due to whitespace-only first_name[0m
 [0;33mTest Case 6: Register a user, then try to register with the same username...[0m
-First registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"12dc0707-2861-4397-95cb-f38133d72cc9"}
+First registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"bbe87036-1cf4-4a97-9623-6ed5ce63d218"}
 Second registration response: {"error":"Username already taken"}
 [0;32mTest passed: Second registration failed as expected due to duplicate username[0m
 [0;32mAll failed registration tests passed successfully![0m
 [0;33mCleaning up...[0m
+ Container test-user-registration-service-1  Stopping
  Container test-kyc-verifier-service-1  Stopping
  Container test-kyc-worker-1  Stopping
- Container test-user-registration-service-1  Stopping
  Container test-kyc-worker-1  Stopped
  Container test-kyc-worker-1  Removing
  Container test-kyc-worker-1  Removed
@@ -215,9 +271,9 @@ Second registration response: {"error":"Username already taken"}
  Container test-postgres-1  Stopping
  Container test-redis-1  Stopped
  Container test-redis-1  Removing
+ Container test-redis-1  Removed
  Container test-postgres-1  Stopped
  Container test-postgres-1  Removing
- Container test-redis-1  Removed
  Container test-postgres-1  Removed
  Container test-localstack-1  Stopped
  Container test-localstack-1  Removing
@@ -232,45 +288,53 @@ Running test: integration_test.sh
 ----------------------------------------
 [0;33mStarting integration tests...[0m
 [0;33mStep 1: Starting the system...[0m
+ Volume test_redis_data  Removing
+ Volume test_postgres_data  Removing
+ Volume test_redis_data  Removed
+ Volume test_postgres_data  Removed
 [0;33mStarting services (this may take a minute)...[0m
  Network test-network  Creating
  Network test-network  Created
- Container test-postgres-1  Creating
+ Volume "test_redis_data"  Creating
+ Volume "test_redis_data"  Created
+ Volume "test_postgres_data"  Creating
+ Volume "test_postgres_data"  Created
  Container test-redis-1  Creating
+ Container test-postgres-1  Creating
  Container test-localstack-1  Creating
  Container test-localstack-1  Created
- Container test-redis-1  Created
  Container test-postgres-1  Created
- Container test-user-registration-service-1  Creating
- Container test-kyc-worker-1  Creating
  Container test-kyc-verifier-service-1  Creating
+ Container test-kyc-worker-1  Creating
+ Container test-redis-1  Created
+ Container test-user-registration-service-1  Creating
  Container test-kyc-verifier-service-1  Created
  Container test-kyc-worker-1  Created
  Container test-user-registration-service-1  Created
- Container test-localstack-1  Starting
  Container test-postgres-1  Starting
  Container test-redis-1  Starting
+ Container test-localstack-1  Starting
  Container test-redis-1  Started
+ Container test-localstack-1  Started
  Container test-postgres-1  Started
  Container test-postgres-1  Waiting
- Container test-localstack-1  Started
  Container test-postgres-1  Waiting
- Container test-localstack-1  Waiting
  Container test-localstack-1  Waiting
  Container test-postgres-1  Waiting
  Container test-redis-1  Waiting
+ Container test-localstack-1  Waiting
+ Container test-postgres-1  Healthy
  Container test-postgres-1  Healthy
  Container test-kyc-verifier-service-1  Starting
  Container test-postgres-1  Healthy
- Container test-redis-1  Healthy
- Container test-postgres-1  Healthy
  Container test-localstack-1  Healthy
  Container test-localstack-1  Healthy
- Container test-user-registration-service-1  Starting
  Container test-kyc-worker-1  Starting
+ Container test-redis-1  Healthy
+ Container test-user-registration-service-1  Starting
  Container test-kyc-worker-1  Started
- Container test-kyc-verifier-service-1  Started
  Container test-user-registration-service-1  Started
+ Container test-kyc-verifier-service-1  Started
 [0;33mWaiting for services to be ready...[0m
 [0;33mChecking if user-registration-service is up...[0m
 [0;32mUser registration service is up![0m
@@ -282,7 +346,7 @@ curl -X POST http://localhost:18086/api/v1/register \
     "username": "johndoe",
     "email": "john.doe@example.com",
     "password": "securePassword123!",
-    "phone_number": "+15551234567",
+    "phone_number": "2132103590",
     "first_name": "John",
     "last_name": "Doe",
     "date_of_birth": "1990-01-15",
@@ -297,25 +361,25 @@ curl -X POST http://localhost:18086/api/v1/register \
     "risk_profile": "MODERATE",
     "accept_terms": true
   }'
-Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"b6dd51ae-a151-4a5c-8eac-0d2e630f2d50"}
+Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"91865f8c-f70e-4276-834d-9e7b27057db4"}
 [0;32mUser registered successfully![0m
 [0;33mStep 3: Extracting verification token from logs...[0m
-[0;32mExtracted verification token: a586c25e-e449-4dd8-80e4-0aa6839480dd[0m
+[0;32mExtracted verification token: 2b7f15ed-82f1-4c4d-a552-294094f4442f[0m
 [0;33mStep 4: Verifying email with token...[0m
 [0;32mExecuting command:[0m
 curl -X POST http://localhost:18086/api/v1/verify-email \
   -H 'Content-Type: application/json' \
   -d '{
-    "token": "a586c25e-e449-4dd8-80e4-0aa6839480dd"
+    "token": "2b7f15ed-82f1-4c4d-a552-294094f4442f"
   }'
 Verification response: {"message":"Email verified successfully. Your account is now active."}
 [0;32mEmail verified successfully![0m
 [0;33mStep 5: Checking KYC verification request in database...[0m
 [0;32mKYC verification request found in the database![0m
 [0;33mKYC verification request details:[0m
-                  id                  |               user_id                | status  |          created_at           |                                                                                                                                                                                 request_data                                                                                                                                                                                 
---------------------------------------+--------------------------------------+---------+-------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- 4445187a-194e-4495-8d4b-fe2b9d7f6e92 | b6dd51ae-a151-4a5c-8eac-0d2e630f2d50 | PENDING | 2025-04-18 03:43:07.619518+00 | {"city": "New York", "email": "john.doe@example.com", "phone": "+15551234567", "state": "NY", "source": "EMAIL_VERIFICATION", "country": "USA", "user_id": "b6dd51ae-a151-4a5c-8eac-0d2e630f2d50", "last_name": "Doe", "first_name": "John", "postal_code": "10001", "request_type": "IDENTITY_VERIFICATION", "address_line1": "123 Main St", "date_of_birth": "1990-01-15"}
+                  id                  |               user_id                | status  |          created_at           |                                                                                                                                                                                request_data                                                                                                                                                                                
+--------------------------------------+--------------------------------------+---------+-------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 44429f16-bff9-4c31-ad69-a5098e91563e | 91865f8c-f70e-4276-834d-9e7b27057db4 | PENDING | 2025-04-19 03:51:53.520969+00 | {"city": "New York", "email": "john.doe@example.com", "phone": "2132103590", "state": "NY", "source": "EMAIL_VERIFICATION", "country": "USA", "user_id": "91865f8c-f70e-4276-834d-9e7b27057db4", "last_name": "Doe", "first_name": "John", "postal_code": "10001", "request_type": "IDENTITY_VERIFICATION", "address_line1": "123 Main St", "date_of_birth": "1990-01-15"}
 (1 row)
 
 [0;33mStep 6: Checking if first_name is included in KYC verification request data...[0m
@@ -329,26 +393,27 @@ INSERT 0 1
 [0;32mVerification request found for the registered email![0m
 [0;33mStep 8: Verifying the KYC verification request...[0m
 [0;33mGetting verification request ID from the database...[0m
-[0;32mGot verification request ID: 4445187a-194e-4495-8d4b-fe2b9d7f6e92[0m
+[0;32mGot verification request ID: 44429f16-bff9-4c31-ad69-a5098e91563e[0m
 [0;33mChecking if kyc-verifier-service is running...[0m
 [0;33mWaiting for kyc-verifier-service to be ready...[0m
-[0;32mKYC verifier service is up![0m
+[0;33mKYC verifier service is configured to use port 18081 (internal port 8081)[0m
+[0;32mKYC verifier service is up on port 18081![0m
 [0;33mLogging in to get a JWT token using the default admin user...[0m
 [0;33mLogin attempt 0/5...[0m
 [0;32mExecuting command:[0m
-curl -X POST http://localhost:18090/api/auth/login \
+curl -X POST http://localhost:18081/api/auth/login \
     -H "Content-Type: application/json" \
     -d '{
       "username": "admin",
       "password": "admin123"
     }'
-Login response: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUwMzQxOTAsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiOTAwYTMzMzItNmUzZC00NWFlLWExNDctN2EwMzgzNjAxOTE2IiwidXNlcm5hbWUiOiJhZG1pbiJ9.LVdthe7Fx_zLpzJJFrg1ne4mkfQ9uX8jraZrULv6-vM"}
-[0;32mGot JWT token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUwMzQxOTAsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiOTAwYTMzMzItNmUzZC00NWFlLWExNDctN2EwMzgzNjAxOTE2IiwidXNlcm5hbWUiOiJhZG1pbiJ9.LVdthe7Fx_zLpzJJFrg1ne4mkfQ9uX8jraZrULv6-vM[0m
+Login response: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUxMjExMTYsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiY2U2M2Q4ZDctODA1My00ZDA3LTgxZWUtNWMxYjVkMzdkZDUyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LqkKcS7idabTrqer5opdTe13zvjzGMaKgC1x8gPNTU8"}
+[0;32mGot JWT token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUxMjExMTYsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiY2U2M2Q4ZDctODA1My00ZDA3LTgxZWUtNWMxYjVkMzdkZDUyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LqkKcS7idabTrqer5opdTe13zvjzGMaKgC1x8gPNTU8[0m
 [0;33mVerifying the KYC verification request using the API...[0m
 [0;32mExecuting command:[0m
-curl -X PATCH http://localhost:18090/api/verification-requests/4445187a-194e-4495-8d4b-fe2b9d7f6e92/status \
+curl -X PATCH http://localhost:18081/api/verification-requests/44429f16-bff9-4c31-ad69-a5098e91563e/status \
     -H "Content-Type: application/json" \
-    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUwMzQxOTAsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiOTAwYTMzMzItNmUzZC00NWFlLWExNDctN2EwMzgzNjAxOTE2IiwidXNlcm5hbWUiOiJhZG1pbiJ9.LVdthe7Fx_zLpzJJFrg1ne4mkfQ9uX8jraZrULv6-vM" \
+    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRydXN0YWludmVzdC5jb20iLCJleHAiOjE3NDUxMjExMTYsImZpcnN0TmFtZSI6IkFkbWluIiwibGFzdE5hbWUiOiJVc2VyIiwicm9sZSI6IkFETUlOIiwic3ViIjoiY2U2M2Q4ZDctODA1My00ZDA3LTgxZWUtNWMxYjVkMzdkZDUyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LqkKcS7idabTrqer5opdTe13zvjzGMaKgC1x8gPNTU8" \
     -d '{
       "status": "VERIFIED"
     }'
@@ -359,9 +424,13 @@ Verify KYC response: {"message":"Failed to update verification request status"}
 [0;33mDisabling trigger...[0m
 ALTER TABLE
 [0;33mUpdating verification request status...[0m
+BEGIN
+UPDATE 1
 COMMIT
 [0;33mStatus after update: VERIFIED[0m
 [0;33mUpdating user KYC status...[0m
+BEGIN
+UPDATE 1
 COMMIT
 [0;33mRe-enabling trigger...[0m
 ALTER TABLE
@@ -372,27 +441,27 @@ ALTER TABLE
 [0;32mUser KYC status was also updated to VERIFIED in the database![0m
 [0;32mAll tests passed successfully![0m
 [0;33mCleaning up...[0m
- Container test-user-registration-service-1  Stopping
  Container test-kyc-verifier-service-1  Stopping
  Container test-kyc-worker-1  Stopping
+ Container test-user-registration-service-1  Stopping
  Container test-kyc-worker-1  Stopped
  Container test-kyc-worker-1  Removing
  Container test-kyc-worker-1  Removed
- Container test-user-registration-service-1  Stopped
- Container test-user-registration-service-1  Removing
  Container test-kyc-verifier-service-1  Stopped
  Container test-kyc-verifier-service-1  Removing
+ Container test-kyc-verifier-service-1  Removed
+ Container test-user-registration-service-1  Stopped
+ Container test-user-registration-service-1  Removing
  Container test-user-registration-service-1  Removed
  Container test-localstack-1  Stopping
  Container test-redis-1  Stopping
- Container test-kyc-verifier-service-1  Removed
  Container test-postgres-1  Stopping
- Container test-redis-1  Stopped
- Container test-redis-1  Removing
- Container test-redis-1  Removed
  Container test-postgres-1  Stopped
  Container test-postgres-1  Removing
+ Container test-redis-1  Stopped
+ Container test-redis-1  Removing
  Container test-postgres-1  Removed
+ Container test-redis-1  Removed
  Container test-localstack-1  Stopped
  Container test-localstack-1  Removing
  Container test-localstack-1  Removed
@@ -402,46 +471,373 @@ RESULT: PASSED
 
 ========================================
 
-Running test: user_journey_test.sh
+Running test: login_test.sh
 ----------------------------------------
-[0;33mStarting user journey integration test...[0m
-[0;33mStep 1: Starting the system...[0m
-[0;33mStarting services (this may take a minute)...[0m
+[1;33mStarting login test suite...[0m
+[1;33mStep 1: Building required images...[0m
+Compose can now delegate builds to bake for better performance.
+ To do so, set COMPOSE_BAKE=true.
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [user-registration-service internal] load build definition from Dockerfile.registration.test
+#1 transferring dockerfile: 621B done
+#1 DONE 0.0s
+
+#2 [kyc-verifier-service internal] load build definition from Dockerfile.kyc-verifier.test
+#2 transferring dockerfile: 652B done
+#2 DONE 0.0s
+
+#3 [kyc-worker internal] load build definition from Dockerfile.kyc-worker.test
+#3 transferring dockerfile: 559B done
+#3 DONE 0.0s
+
+#4 [kyc-worker internal] load metadata for docker.io/library/golang:1.24-alpine
+#4 DONE 0.3s
+
+#5 [kyc-worker internal] load metadata for docker.io/library/alpine:3.19
+#5 DONE 0.3s
+
+#6 [kyc-worker internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [user-registration-service internal] load .dockerignore
+#7 transferring context: 2B done
+#7 DONE 0.0s
+
+#8 [kyc-verifier-service internal] load .dockerignore
+#8 transferring context: 2B done
+#8 DONE 0.0s
+
+#9 [kyc-worker stage-1 1/3] FROM docker.io/library/alpine:3.19@sha256:e5d0aea7f7d2954678a9a6269ca2d06e06591881161961ea59e974dff3f12377
+#9 resolve docker.io/library/alpine:3.19@sha256:e5d0aea7f7d2954678a9a6269ca2d06e06591881161961ea59e974dff3f12377 0.0s done
+#9 DONE 0.0s
+
+#10 [user-registration-service builder 1/6] FROM docker.io/library/golang:1.24-alpine@sha256:7772cb5322baa875edd74705556d08f0eeca7b9c4b5367754ce3f2f00041ccee
+#10 resolve docker.io/library/golang:1.24-alpine@sha256:7772cb5322baa875edd74705556d08f0eeca7b9c4b5367754ce3f2f00041ccee 0.0s done
+#10 DONE 0.0s
+
+#11 [user-registration-service internal] load build context
+#11 transferring context: 268.05kB 0.1s done
+#11 DONE 0.1s
+
+#12 [kyc-worker internal] load build context
+#12 transferring context: 268.05kB 0.1s done
+#12 DONE 0.1s
+
+#13 [kyc-verifier-service internal] load build context
+#13 transferring context: 268.05kB 0.1s done
+#13 DONE 0.1s
+
+#14 [user-registration-service builder 3/6] COPY go.mod go.sum ./
+#14 CACHED
+
+#15 [user-registration-service builder 2/6] WORKDIR /app
+#15 CACHED
+
+#16 [kyc-verifier-service builder 4/6] RUN go mod download
+#16 CACHED
+
+#17 [kyc-worker builder 5/6] COPY . .
+#17 DONE 2.1s
+
+#18 [kyc-worker builder 3/6] COPY go.mod go.sum ./
+#18 CACHED
+
+#19 [kyc-worker builder 4/6] RUN go mod download
+#19 CACHED
+
+#20 [kyc-worker builder 5/6] COPY . .
+#20 CACHED
+
+#15 [kyc-verifier-service builder 2/6] WORKDIR /app
+#15 CACHED
+
+#21 [kyc-verifier-service builder 3/6] COPY go.mod go.sum ./
+#21 CACHED
+
+#22 [kyc-verifier-service builder 5/6] COPY . .
+#22 CACHED
+
+#23 [kyc-verifier-service builder 4/6] RUN go mod download
+#23 CACHED
+
+#24 [kyc-verifier-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-verifier-service ./cmd/kyc-verifier-service
+#24 ...
+
+#25 [kyc-worker builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-worker ./cmd/kyc-worker
+#25 ...
+
+#26 [user-registration-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o user-registration-service ./cmd/user-registration-service
+#26 ...
+
+#25 [kyc-worker builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-worker ./cmd/kyc-worker
+#25 DONE 10.4s
+
+#27 [kyc-worker stage-1 2/3] WORKDIR /root/
+#27 CACHED
+
+#28 [kyc-worker stage-1 3/3] COPY --from=builder /app/kyc-worker .
+#28 CACHED
+
+#29 [kyc-worker] exporting to image
+#29 exporting layers done
+#29 exporting manifest sha256:eebfc763f16f38b7238d6764401806faa6f93b41c44ca1db18037ad89e7bfeaa done
+#29 exporting config sha256:48f2e1e1df15250e293a9f33465e3bc6f42f2ae3e96c751eeaa201c45d3dae8c done
+#29 exporting attestation manifest sha256:a9482770434b3bbf0f445db66ace9d09597e8728d86ec027313d24ba51dbdce3 0.1s done
+#29 exporting manifest list sha256:bd4c81f22f1f9ef9bb5df4fdbd61b52bfe05c2fa8b68f438ba93234b6afd9ed3
+#29 exporting manifest list sha256:bd4c81f22f1f9ef9bb5df4fdbd61b52bfe05c2fa8b68f438ba93234b6afd9ed3 0.0s done
+#29 naming to docker.io/library/test-kyc-worker:latest done
+#29 unpacking to docker.io/library/test-kyc-worker:latest done
+#29 DONE 0.1s
+
+#30 [kyc-worker] resolving provenance for metadata file
+#30 DONE 0.1s
+
+#26 [user-registration-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o user-registration-service ./cmd/user-registration-service
+#26 ...
+
+#24 [kyc-verifier-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o kyc-verifier-service ./cmd/kyc-verifier-service
+#24 DONE 11.2s
+
+#27 [kyc-verifier-service stage-1 2/3] WORKDIR /root/
+#27 CACHED
+
+#31 [kyc-verifier-service stage-1 3/3] COPY --from=builder /app/kyc-verifier-service .
+#31 CACHED
+
+#32 [kyc-verifier-service] exporting to image
+#32 exporting layers done
+#32 exporting manifest sha256:7f537b519e835b8207f5087d0fee37147e3c166184b54622bccdfc4dbd9de1b2 done
+#32 exporting config sha256:f381c0d8d88cc891217394510c4bf36070ad2fc9f5e64a199abdee581881c458 done
+#32 exporting attestation manifest sha256:f443d23a1007564ae6caefbb9217b6704aec63cd283b615f1cd3cee0e07887e5 0.0s done
+#32 exporting manifest list sha256:9c1a37ab451ad0432614f70deb3d64610c0980b19c9f4c46cd66336ffbd6c61b done
+#32 naming to docker.io/library/test-kyc-verifier-service:latest done
+#32 unpacking to docker.io/library/test-kyc-verifier-service:latest done
+#32 DONE 0.1s
+
+#33 [kyc-verifier-service] resolving provenance for metadata file
+#33 DONE 0.0s
+
+#26 [user-registration-service builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o user-registration-service ./cmd/user-registration-service
+#26 DONE 12.5s
+
+#27 [user-registration-service stage-1 2/3] WORKDIR /root/
+#27 CACHED
+
+#34 [user-registration-service stage-1 3/3] COPY --from=builder /app/user-registration-service .
+#34 CACHED
+
+#35 [user-registration-service] exporting to image
+#35 exporting layers done
+#35 exporting manifest sha256:1128a5f668959f2ff9d8a319a00917ec76a391d6043cb9dce95d23dc029fa944 done
+#35 exporting config sha256:7cf530751b1769f559c06f2cef436e45f8529d50e15703e994374e647234ea74 done
+#35 exporting attestation manifest sha256:c2274e3227beb521c398f1d4071a5e873b578f4869ced809882c9ea62ca8b857 done
+#35 exporting manifest list sha256:d23a5c1a9e71b0e8a2355c66492a9bfadc98003b98efbfe09d2f662da18baa29 done
+#35 naming to docker.io/library/test-user-registration-service:latest done
+#35 unpacking to docker.io/library/test-user-registration-service:latest done
+#35 DONE 0.0s
+
+#36 [user-registration-service] resolving provenance for metadata file
+#36 DONE 0.0s
+ kyc-verifier-service  Built
+ kyc-worker  Built
+ user-registration-service  Built
+[1;33mStep 2: Starting the system...[0m
+ Volume test_redis_data  Removing
+ Volume test_postgres_data  Removing
+ Volume test_redis_data  Removed
+ Volume test_postgres_data  Removed
+[1;33mStarting services (this may take a minute)...[0m
  Network test-network  Creating
  Network test-network  Created
- Container test-postgres-1  Creating
+ Volume "test_postgres_data"  Creating
+ Volume "test_postgres_data"  Created
+ Volume "test_redis_data"  Creating
+ Volume "test_redis_data"  Created
  Container test-localstack-1  Creating
  Container test-redis-1  Creating
+ Container test-postgres-1  Creating
  Container test-localstack-1  Created
- Container test-redis-1  Created
  Container test-postgres-1  Created
- Container test-kyc-worker-1  Creating
- Container test-user-registration-service-1  Creating
  Container test-kyc-verifier-service-1  Creating
+ Container test-kyc-worker-1  Creating
+ Container test-redis-1  Created
+ Container test-user-registration-service-1  Creating
  Container test-kyc-verifier-service-1  Created
  Container test-user-registration-service-1  Created
  Container test-kyc-worker-1  Created
  Container test-postgres-1  Starting
- Container test-localstack-1  Starting
  Container test-redis-1  Starting
+ Container test-localstack-1  Starting
  Container test-redis-1  Started
- Container test-localstack-1  Started
  Container test-postgres-1  Started
+ Container test-postgres-1  Waiting
+ Container test-localstack-1  Started
+ Container test-postgres-1  Waiting
+ Container test-localstack-1  Waiting
+ Container test-redis-1  Waiting
+ Container test-localstack-1  Waiting
+ Container test-postgres-1  Waiting
+ Container test-postgres-1  Healthy
+ Container test-kyc-verifier-service-1  Starting
+ Container test-postgres-1  Healthy
+ Container test-postgres-1  Healthy
+ Container test-localstack-1  Healthy
+ Container test-kyc-worker-1  Starting
+ Container test-localstack-1  Healthy
+ Container test-redis-1  Healthy
+ Container test-user-registration-service-1  Starting
+ Container test-kyc-worker-1  Started
+ Container test-user-registration-service-1  Started
+ Container test-kyc-verifier-service-1  Started
+[1;33mWaiting for services to be ready...[0m
+[1;33mWaiting for database initialization to complete...[0m
+[0;32mDatabase initialization completed![0m
+[1;33mChecking if user-registration-service is up...[0m
+[0;32mUser registration service is up![0m
+
+[1;33mTest 1: Register new user[0m
+Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"824c1067-bc2f-4f48-9f1a-5fdb11d5433d"}
+[0;32m✓ User registration successful[0m
+[1;33mStep 2: Extracting verification token from logs...[0m
+[0;32mExtracted verification token: 8b379fce-70c9-4275-9c90-a28f68e4e511[0m
+[1;33mStep 3: Verifying email with token...[0m
+Verification response: {"message":"Email verified successfully. Your account is now active."}
+[0;32mEmail verified successfully![0m
+[1;33mStep 4: Getting verification request ID from the database...[0m
+[0;32mGot verification request ID: b9f3b7d0-9f77-4cd4-94fd-29ac35e37d83[0m
+[1;33mStep 5.1: Attempting to login with the non-verified user...[0m
+Login response: {"error":"KYC not verified. Your account is pending KYC verification."}
+[0;32mLogin correctly failed with KYC not verified message![0m
+[1;33mStep 6: Updating verification request status to VERIFIED...[0m
+[1;33mDisabling trigger...[0m
+ALTER TABLE
+[1;33mUpdating verification request status...[0m
+BEGIN
+UPDATE 1
+COMMIT
+[1;33mUpdating user KYC status...[0m
+BEGIN
+UPDATE 1
+COMMIT
+[1;33mRe-enabling trigger...[0m
+ALTER TABLE
+[1;33mStep 7: Verifying KYC status is set to VERIFIED...[0m
+[0;32mUser's KYC status is correctly set to VERIFIED![0m
+
+[1;33mTest 2: First login[0m
+Login response: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjRjMTA2Ny1iYzJmLTRmNDgtOWYxYS01ZmRiMTFkNTQzM2QiLCJ1c2VybmFtZSI6InRlc3RfdXNlcl8xNzQ1MDM0NzUyIiwiZW1haWwiOiJ0ZXN0XzE3NDUwMzQ3NTJAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc0NTEyMTE1NX0.CSOPDwohlapj5pClY7Pa9GESD4MLa-C8IXH5yynDY2s","session_id":"777b8e65-4252-4463-b456-489a804770de","expires_in":86400,"user_id":"824c1067-bc2f-4f48-9f1a-5fdb11d5433d","username":"test_user_1745034752","email":"test_1745034752@example.com"}
+[0;32m✓ First login successful[0m
+
+[1;33mTest 3: Second login from different device[0m
+Second login response: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjRjMTA2Ny1iYzJmLTRmNDgtOWYxYS01ZmRiMTFkNTQzM2QiLCJ1c2VybmFtZSI6InRlc3RfdXNlcl8xNzQ1MDM0NzUyIiwiZW1haWwiOiJ0ZXN0XzE3NDUwMzQ3NTJAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc0NTEyMTE1NX0.CSOPDwohlapj5pClY7Pa9GESD4MLa-C8IXH5yynDY2s","session_id":"ef4bf0c7-1721-4a22-90bf-4d571ec8fe41","expires_in":86400,"user_id":"824c1067-bc2f-4f48-9f1a-5fdb11d5433d","username":"test_user_1745034752","email":"test_1745034752@example.com"}
+[0;32m✓ Second login successful[0m
+
+[1;33mTest 4: Verify first session is invalidated[0m
+First session check response: {"error":"Invalid or expired session"}
+[0;32m✓ First session successfully invalidated[0m
+
+[1;33mTest 5: Verify second session is still valid[0m
+Second session check response: {"id":"824c1067-bc2f-4f48-9f1a-5fdb11d5433d","username":"test_user_1745034752","email":"test_1745034752@example.com","phone_number":"1234567890","first_name":"Test","last_name":"User","date_of_birth":"1990-01-01","address":{"street":"123 Test St","city":"Test City","state":"TS","zip_code":"12345","country":"USA"},"risk_profile":"MODERATE","kyc_status":"VERIFIED","is_active":true,"email_verified":true,"created_at":"2025-04-19T03:52:32Z","updated_at":"2025-04-19T03:52:34Z"}
+[0;32m✓ Second session remains valid[0m
+
+[1;33mTest 6: Third login from another device[0m
+Third login response: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjRjMTA2Ny1iYzJmLTRmNDgtOWYxYS01ZmRiMTFkNTQzM2QiLCJ1c2VybmFtZSI6InRlc3RfdXNlcl8xNzQ1MDM0NzUyIiwiZW1haWwiOiJ0ZXN0XzE3NDUwMzQ3NTJAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc0NTEyMTE1NX0.CSOPDwohlapj5pClY7Pa9GESD4MLa-C8IXH5yynDY2s","session_id":"b81917d4-cfec-4f5a-b61e-9f53cacd0892","expires_in":86400,"user_id":"824c1067-bc2f-4f48-9f1a-5fdb11d5433d","username":"test_user_1745034752","email":"test_1745034752@example.com"}
+[0;32m✓ Third login successful[0m
+
+[1;33mTest 7: Verify second session is invalidated[0m
+Second session check response: {"error":"Invalid or expired session"}
+[0;32m✓ Second session successfully invalidated[0m
+
+[1;33mTest 8: Verify third session is still valid[0m
+Third session check response: {"id":"824c1067-bc2f-4f48-9f1a-5fdb11d5433d","username":"test_user_1745034752","email":"test_1745034752@example.com","phone_number":"1234567890","first_name":"Test","last_name":"User","date_of_birth":"1990-01-01","address":{"street":"123 Test St","city":"Test City","state":"TS","zip_code":"12345","country":"USA"},"risk_profile":"MODERATE","kyc_status":"VERIFIED","is_active":true,"email_verified":true,"created_at":"2025-04-19T03:52:32Z","updated_at":"2025-04-19T03:52:34Z"}
+[0;32m✓ Third session remains valid[0m
+
+[0;32mAll tests completed successfully![0m
+[1;33mCleaning up...[0m
+ Container test-kyc-verifier-service-1  Stopping
+ Container test-kyc-worker-1  Stopping
+ Container test-user-registration-service-1  Stopping
+ Container test-kyc-worker-1  Stopped
+ Container test-kyc-worker-1  Removing
+ Container test-kyc-worker-1  Removed
+ Container test-user-registration-service-1  Stopped
+ Container test-user-registration-service-1  Removing
+ Container test-user-registration-service-1  Removed
+ Container test-redis-1  Stopping
+ Container test-localstack-1  Stopping
+ Container test-kyc-verifier-service-1  Stopped
+ Container test-kyc-verifier-service-1  Removing
+ Container test-kyc-verifier-service-1  Removed
+ Container test-postgres-1  Stopping
+ Container test-postgres-1  Stopped
+ Container test-postgres-1  Removing
+ Container test-redis-1  Stopped
+ Container test-redis-1  Removing
+ Container test-postgres-1  Removed
+ Container test-redis-1  Removed
+ Container test-localstack-1  Stopped
+ Container test-localstack-1  Removing
+ Container test-localstack-1  Removed
+ Volume test_postgres_data  Removing
+ Volume test_redis_data  Removing
+ Network test-network  Removing
+ Volume test_postgres_data  Removed
+ Volume test_redis_data  Removed
+ Network test-network  Removed
+RESULT: PASSED
+
+========================================
+
+Running test: user_journey_test.sh
+----------------------------------------
+[0;33mStarting user journey integration test...[0m
+[0;33mStep 1: Starting the system...[0m
+ Volume test_redis_data  Removing
+ Volume test_postgres_data  Removing
+ Volume test_redis_data  Removed
+ Volume test_postgres_data  Removed
+[0;33mStarting services (this may take a minute)...[0m
+ Network test-network  Creating
+ Network test-network  Created
+ Volume "test_redis_data"  Creating
+ Volume "test_redis_data"  Created
+ Volume "test_postgres_data"  Creating
+ Volume "test_postgres_data"  Created
+ Container test-redis-1  Creating
+ Container test-localstack-1  Creating
+ Container test-postgres-1  Creating
+ Container test-localstack-1  Created
+ Container test-redis-1  Created
+ Container test-postgres-1  Created
+ Container test-kyc-verifier-service-1  Creating
+ Container test-kyc-worker-1  Creating
+ Container test-user-registration-service-1  Creating
+ Container test-user-registration-service-1  Created
+ Container test-kyc-worker-1  Created
+ Container test-kyc-verifier-service-1  Created
+ Container test-redis-1  Starting
+ Container test-localstack-1  Starting
+ Container test-postgres-1  Starting
+ Container test-redis-1  Started
+ Container test-postgres-1  Started
+ Container test-postgres-1  Waiting
+ Container test-localstack-1  Started
+ Container test-postgres-1  Waiting
  Container test-localstack-1  Waiting
  Container test-postgres-1  Waiting
  Container test-redis-1  Waiting
  Container test-localstack-1  Waiting
- Container test-postgres-1  Waiting
- Container test-postgres-1  Waiting
+ Container test-postgres-1  Healthy
+ Container test-kyc-verifier-service-1  Starting
  Container test-redis-1  Healthy
  Container test-postgres-1  Healthy
  Container test-postgres-1  Healthy
- Container test-kyc-verifier-service-1  Starting
- Container test-postgres-1  Healthy
- Container test-localstack-1  Healthy
- Container test-user-registration-service-1  Starting
  Container test-localstack-1  Healthy
  Container test-kyc-worker-1  Starting
+ Container test-localstack-1  Healthy
+ Container test-user-registration-service-1  Starting
  Container test-kyc-verifier-service-1  Started
  Container test-kyc-worker-1  Started
  Container test-user-registration-service-1  Started
@@ -453,10 +849,10 @@ Running test: user_journey_test.sh
 curl -X POST http://localhost:18086/api/v1/register \
   -H "Content-Type: application/json" \
   -d @register.json
-Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"39cf05bc-27b1-4419-b2e3-6928f570152d"}
-[0;32mUser registered with ID: 39cf05bc-27b1-4419-b2e3-6928f570152d[0m
+Registration response: {"message":"User registered successfully. Please check your email to verify your account.","user_id":"8e42e413-0355-48e7-a6ff-7a4694546dfc"}
+[0;32mUser registered with ID: 8e42e413-0355-48e7-a6ff-7a4694546dfc[0m
 [0;33mStep 3: Extracting verification token from logs...[0m
-[0;32mExtracted verification token: a40fed2b-2493-4c09-8807-201eae14b7a2[0m
+[0;32mExtracted verification token: 35b1aec3-6bb8-4a98-b12e-4032c6fa91e5[0m
 [0;33mStep 4: Verifying email with token...[0m
 [0;32mExecuting command:[0m
 curl -X POST http://localhost:18086/api/v1/verify-email \
@@ -465,13 +861,56 @@ curl -X POST http://localhost:18086/api/v1/verify-email \
 Verification response: {"message":"Email verified successfully. Your account is now active."}
 [0;32mEmail verified successfully![0m
 [0;33mStep 5: Getting verification request ID from the database...[0m
-[0;32mGot verification request ID: 83447a3c-39a6-49d7-bd7a-736d7c57a60e[0m
+[0;32mGot verification request ID: d7f1ff0e-a233-4965-a3b6-310aa2858528[0m
+[0;33mStep 5.1: Attempting to login with the non-verified user...[0m
+[0;33mAttempting login (0/5)...[0m
+[0;32mExecuting command:[0m
+curl -v -X POST http://localhost:18086/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d @login-non-verified.json
+[0;33mFull response (including headers):[0m
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:18086 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:18086...
+* Connected to localhost (::1) port 18086
+> POST /api/v1/auth/login HTTP/1.1
+> Host: localhost:18086
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 72
+> 
+} [72 bytes data]
+* upload completely sent off: 72 bytes
+< HTTP/1.1 401 Unauthorized
+< Content-Type: application/json; charset=utf-8
+< Date: Sat, 19 Apr 2025 03:52:57 GMT
+< Content-Length: 71
+< 
+{ [71 bytes data]
+100   143  100    71  100    72  52906  53651 --:--:-- --:--:-- --:--:--  139k
+* Connection #0 to host localhost left intact
+{"error":"KYC not verified. Your account is pending KYC verification."}
+[0;33mResponse body:[0m
+{ [71 bytes data]
+100   143  100    71  100    72  52906  53651 --:--:-- --:--:-- --:--:--  139k
+* Connection #0 to host localhost left intact
+{"error":"KYC not verified. Your account is pending KYC verification."}
+[0;32mLogin correctly failed with KYC not verified message![0m
 [0;33mStep 6: Updating verification request status to VERIFIED...[0m
 [0;33mDisabling trigger...[0m
 ALTER TABLE
 [0;33mUpdating verification request status...[0m
+BEGIN
+UPDATE 1
 COMMIT
 [0;33mUpdating user KYC status...[0m
+BEGIN
+UPDATE 1
 COMMIT
 [0;33mRe-enabling trigger...[0m
 ALTER TABLE
@@ -507,45 +946,49 @@ Note: Unnecessary use of -X or --request, POST is already inferred.
 * upload completely sent off: 72 bytes
 < HTTP/1.1 200 OK
 < Content-Type: application/json; charset=utf-8
-< Date: Fri, 18 Apr 2025 03:43:34 GMT
-< Content-Length: 441
+< Date: Sat, 19 Apr 2025 03:52:57 GMT
+< Content-Length: 493
 < 
-{ [441 bytes data]
-100   513  100   441  100    72   6615   1080 --:--:-- --:--:-- --:--:--  7772
+{ [493 bytes data]
+100   565  100   493  100    72   7281   1063 --:--:-- --:--:-- --:--:--  8432
 * Connection #0 to host localhost left intact
-{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzOWNmMDViYy0yN2IxLTQ0MTktYjJlMy02OTI4ZjU3MDE1MmQiLCJ1c2VybmFtZSI6InRlc3R1c2VyXzE3NDQ5NDc4MTEiLCJlbWFpbCI6InRlc3QudXNlci4xNzQ0OTQ3ODExQGV4YW1wbGUuY29tIiwicm9sZSI6InVzZXIiLCJleHAiOjE3NDUwMzQyMTR9.FHO5tpt2iESCrjUDraUIke8m4j4myZe6GXbmViQaZsY","expires_in":86400,"user_id":"39cf05bc-27b1-4419-b2e3-6928f570152d","username":"testuser_1744947811","email":"test.user.1744947811@example.com"}
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4ZTQyZTQxMy0wMzU1LTQ4ZTctYTZmZi03YTQ2OTQ1NDZkZmMiLCJ1c2VybmFtZSI6InRlc3R1c2VyXzE3NDUwMzQ3NzUiLCJlbWFpbCI6InRlc3QudXNlci4xNzQ1MDM0Nzc1QGV4YW1wbGUuY29tIiwicm9sZSI6InVzZXIiLCJleHAiOjE3NDUxMjExNzd9.qMx8lSR3l22uBVHcv-i03wBl3i1QADuOI6ucsLQN4D0","session_id":"f46a0f72-071a-4937-8f12-d4d65f007e63","expires_in":86400,"user_id":"8e42e413-0355-48e7-a6ff-7a4694546dfc","username":"testuser_1745034775","email":"test.user.1745034775@example.com"}
 [0;33mResponse body:[0m
-{ [441 bytes data]
-100   513  100   441  100    72   6615   1080 --:--:-- --:--:-- --:--:--  7772
+{ [493 bytes data]
+100   565  100   493  100    72   7281   1063 --:--:-- --:--:-- --:--:--  8432
 * Connection #0 to host localhost left intact
-{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzOWNmMDViYy0yN2IxLTQ0MTktYjJlMy02OTI4ZjU3MDE1MmQiLCJ1c2VybmFtZSI6InRlc3R1c2VyXzE3NDQ5NDc4MTEiLCJlbWFpbCI6InRlc3QudXNlci4xNzQ0OTQ3ODExQGV4YW1wbGUuY29tIiwicm9sZSI6InVzZXIiLCJleHAiOjE3NDUwMzQyMTR9.FHO5tpt2iESCrjUDraUIke8m4j4myZe6GXbmViQaZsY","expires_in":86400,"user_id":"39cf05bc-27b1-4419-b2e3-6928f570152d","username":"testuser_1744947811","email":"test.user.1744947811@example.com"}
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4ZTQyZTQxMy0wMzU1LTQ4ZTctYTZmZi03YTQ2OTQ1NDZkZmMiLCJ1c2VybmFtZSI6InRlc3R1c2VyXzE3NDUwMzQ3NzUiLCJlbWFpbCI6InRlc3QudXNlci4xNzQ1MDM0Nzc1QGV4YW1wbGUuY29tIiwicm9sZSI6InVzZXIiLCJleHAiOjE3NDUxMjExNzd9.qMx8lSR3l22uBVHcv-i03wBl3i1QADuOI6ucsLQN4D0","session_id":"f46a0f72-071a-4937-8f12-d4d65f007e63","expires_in":86400,"user_id":"8e42e413-0355-48e7-a6ff-7a4694546dfc","username":"testuser_1745034775","email":"test.user.1745034775@example.com"}
 [0;32mSuccessfully logged in and received JWT token![0m
 [0;33mCleaning up...[0m
- Container test-kyc-verifier-service-1  Stopping
  Container test-kyc-worker-1  Stopping
  Container test-user-registration-service-1  Stopping
+ Container test-kyc-verifier-service-1  Stopping
  Container test-kyc-worker-1  Stopped
  Container test-kyc-worker-1  Removing
  Container test-kyc-worker-1  Removed
- Container test-kyc-verifier-service-1  Stopped
- Container test-kyc-verifier-service-1  Removing
- Container test-kyc-verifier-service-1  Removed
  Container test-user-registration-service-1  Stopped
  Container test-user-registration-service-1  Removing
+ Container test-kyc-verifier-service-1  Stopped
+ Container test-kyc-verifier-service-1  Removing
  Container test-user-registration-service-1  Removed
- Container test-postgres-1  Stopping
- Container test-redis-1  Stopping
  Container test-localstack-1  Stopping
- Container test-postgres-1  Stopped
- Container test-postgres-1  Removing
- Container test-postgres-1  Removed
+ Container test-redis-1  Stopping
+ Container test-kyc-verifier-service-1  Removed
+ Container test-postgres-1  Stopping
  Container test-redis-1  Stopped
  Container test-redis-1  Removing
+ Container test-postgres-1  Stopped
+ Container test-postgres-1  Removing
  Container test-redis-1  Removed
+ Container test-postgres-1  Removed
  Container test-localstack-1  Stopped
  Container test-localstack-1  Removing
  Container test-localstack-1  Removed
+ Volume test_postgres_data  Removing
+ Volume test_redis_data  Removing
  Network test-network  Removing
+ Volume test_redis_data  Removed
+ Volume test_postgres_data  Removed
  Network test-network  Removed
 [0;32mUser journey test completed successfully![0m
 RESULT: PASSED

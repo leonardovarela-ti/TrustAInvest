@@ -27,7 +27,7 @@ WORKDIR /
 COPY --from=builder /kyc-verifier-service /kyc-verifier-service
 
 # Expose the port the service runs on
-EXPOSE 8080
+EXPOSE 8090
 
 # Run the service
 CMD ["/kyc-verifier-service"]

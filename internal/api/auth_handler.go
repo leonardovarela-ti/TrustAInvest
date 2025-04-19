@@ -2,23 +2,31 @@ package api
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leonardovarelatrust/TrustAInvest.com/internal/auth"
 	"github.com/leonardovarelatrust/TrustAInvest.com/internal/models"
+	"github.com/leonardovarelatrust/TrustAInvest.com/internal/services"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
-	userService  AuthUserService
-	tokenService TokenService
+	userService    *services.UserService
+	tokenService   *auth.TokenService
+	sessionService *auth.SessionService
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(userService AuthUserService, tokenService TokenService) *AuthHandler {
+func NewAuthHandler(userService *services.UserService, tokenService *auth.TokenService, sessionService *auth.SessionService) *AuthHandler {
 	return &AuthHandler{
-		userService:  userService,
-		tokenService: tokenService,
+		userService:    userService,
+		tokenService:   tokenService,
+		sessionService: sessionService,
 	}
 }
 
@@ -70,90 +78,118 @@ func (h *AuthHandler) RegisterRoutes(router *gin.Engine) {
 
 // Login handles user login
 func (h *AuthHandler) Login(c *gin.Context) {
-	var request LoginRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var loginRequest LoginRequest
+
+	if err := c.ShouldBindJSON(&loginRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Get user by username and verify password
-	user, err := h.userService.GetUserByUsername(c.Request.Context(), request.Username)
+	// Get user by username
+	user, err := h.userService.GetByUsername(c.Request.Context(), loginRequest.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate user"})
-		return
-	}
-
-	if user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	// Verify password
-	valid, err := h.userService.VerifyPassword(c.Request.Context(), request.Username, request.Password)
-	if err != nil || !valid {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	// Check if user is active
 	if !user.IsActive {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is inactive"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User account is not active"})
 		return
 	}
 
-	// Check if user's KYC is verified
+	// Check if email is verified (assuming we have this field in the User struct)
+	if !user.EmailVerified {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email not verified. Please verify your email before logging in."})
+		return
+	}
+
+	// Check if KYC is verified
 	if user.KYCStatus != "VERIFIED" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is pending KYC verification"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "KYC not verified. Your account is pending KYC verification."})
 		return
 	}
 
-	// Generate JWT token
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(loginRequest.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
 	token, err := h.tokenService.GenerateToken(user.ID, user.Username, user.Email, "USER")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Return token and user info
-	c.JSON(http.StatusOK, LoginResponse{
-		Token:     token,
-		ExpiresIn: 3600, // 1 hour
-		UserID:    user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
+	// Create a new session and invalidate any existing ones
+	sessionID, err := h.sessionService.CreateSession(
+		c.Request.Context(),
+		user.ID,
+		token,
+		c.GetHeader("User-Agent"),
+		c.ClientIP(),
+		time.Now().Add(24*time.Hour), // Session expires in 24 hours
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":      token,
+		"session_id": sessionID,
+		"user": gin.H{
+			"id":       user.ID,
+			"email":    user.Email,
+			"username": user.Username,
+		},
 	})
 }
 
 // AuthMiddleware creates a middleware for authentication
 func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get the Authorization header
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No token provided"})
 			c.Abort()
 			return
 		}
 
-		// Check if the header starts with "Bearer "
-		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
-			c.Abort()
-			return
-		}
+		// Remove "Bearer " prefix if present
+		token = strings.TrimPrefix(token, "Bearer ")
 
-		// Extract the token
-		tokenString := authHeader[7:]
-
-		// Validate the token
-		claims, err := h.tokenService.ValidateToken(tokenString)
+		claims, err := h.tokenService.ValidateToken(token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return
 		}
 
-		// Set the user ID in the context
+		// Get session ID from header
+		sessionID := c.GetHeader("X-Session-ID")
+		if sessionID == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No session ID provided"})
+			c.Abort()
+			return
+		}
+
+		// Validate session
+		valid, err := h.sessionService.ValidateSession(c.Request.Context(), sessionID)
+		if err != nil || !valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired session"})
+			c.Abort()
+			return
+		}
+
+		// Update session activity
+		err = h.sessionService.UpdateSessionActivity(c.Request.Context(), sessionID)
+		if err != nil {
+			// Log the error but don't fail the request
+			log.Printf("Failed to update session activity: %v", err)
+		}
+
 		c.Set("userID", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("email", claims.Email)

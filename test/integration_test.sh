@@ -50,7 +50,7 @@ REGISTER_CMD="curl -X POST http://localhost:18086/api/v1/register \\
     \"username\": \"johndoe\",
     \"email\": \"john.doe@example.com\",
     \"password\": \"securePassword123!\",
-    \"phone_number\": \"+15551234567\",
+    \"phone_number\": \"2132103590\",
     \"first_name\": \"John\",
     \"last_name\": \"Doe\",
     \"date_of_birth\": \"1990-01-15\",
@@ -227,9 +227,17 @@ echo -e "${YELLOW}Waiting for kyc-verifier-service to be ready...${NC}"
 MAX_RETRIES=30
 RETRY_COUNT=0
 
+# Set the port for kyc-verifier-service
+# Using a hardcoded value for reliability since we know the port mapping in docker-compose.test.yml
+KYC_PORT="18081"
+KYC_INTERNAL_PORT="8081"
+
+echo -e "${YELLOW}KYC verifier service is configured to use port ${KYC_PORT} (internal port ${KYC_INTERNAL_PORT})${NC}"
+
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if curl -s http://localhost:18090/health 2>/dev/null | grep -q ""; then
-    echo -e "${GREEN}KYC verifier service is up!${NC}"
+  # Try the configured port
+  if curl -s http://localhost:${KYC_PORT}/health 2>/dev/null | grep -q ""; then
+    echo -e "${GREEN}KYC verifier service is up on port ${KYC_PORT}!${NC}"
     break
   fi
   
@@ -251,7 +259,7 @@ JWT_TOKEN=""
 while [ $LOGIN_RETRY_COUNT -lt $MAX_LOGIN_RETRIES ] && [ -z "$JWT_TOKEN" ]; do
   echo -e "${YELLOW}Login attempt ${LOGIN_RETRY_COUNT}/${MAX_LOGIN_RETRIES}...${NC}"
   
-  LOGIN_CMD="curl -X POST http://localhost:18090/api/auth/login \\
+  LOGIN_CMD="curl -X POST http://localhost:${KYC_PORT}/api/auth/login \\
     -H \"Content-Type: application/json\" \\
     -d '{
       \"username\": \"admin\",
@@ -334,7 +342,7 @@ else
 
   # Verify the KYC verification request using the API
   echo -e "${YELLOW}Verifying the KYC verification request using the API...${NC}"
-  VERIFY_KYC_CMD="curl -X PATCH http://localhost:18090/api/verification-requests/$VERIFICATION_REQUEST_ID/status \\
+  VERIFY_KYC_CMD="curl -X PATCH http://localhost:${KYC_PORT}/api/verification-requests/$VERIFICATION_REQUEST_ID/status \\
     -H \"Content-Type: application/json\" \\
     -H \"Authorization: Bearer $JWT_TOKEN\" \\
     -d '{

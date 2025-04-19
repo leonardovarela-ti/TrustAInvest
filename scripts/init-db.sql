@@ -40,6 +40,24 @@ CREATE INDEX idx_users_username ON users.users(username);
 CREATE INDEX idx_users_email ON users.users(email);
 CREATE INDEX idx_users_kyc_status ON users.users(kyc_status);
 
+-- Add active_sessions table to users schema
+CREATE TABLE IF NOT EXISTS users.active_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users.users(id),
+    token_id VARCHAR(255) NOT NULL UNIQUE,
+    device_info TEXT,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Create indexes for active_sessions table
+CREATE INDEX idx_active_sessions_user_id ON users.active_sessions(user_id);
+CREATE INDEX idx_active_sessions_token_id ON users.active_sessions(token_id);
+CREATE INDEX idx_active_sessions_expires_at ON users.active_sessions(expires_at);
+
 -- Add email_verifications table to users schema
 CREATE TABLE IF NOT EXISTS users.email_verifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
