@@ -89,6 +89,16 @@ func main() {
 			etrade.GET("/accounts", getETradeAccounts)
 			etrade.POST("/accounts/link", linkETradeAccount)
 		}
+
+		// Capital One integration routes
+		capitalone := v1.Group("/capitalone")
+		{
+			capitalone.POST("/auth/initiate", initiateCapitalOneAuth)
+			capitalone.POST("/auth/callback", capitalOneAuthCallback)
+			capitalone.GET("/accounts", getCapitalOneAccounts)
+			capitalone.POST("/accounts/link", linkCapitalOneAccount)
+			capitalone.POST("/products/:productId/search", searchCapitalOneBankProducts)
+		}
 	}
 
 	// Start server
@@ -652,6 +662,407 @@ func linkETradeAccount(c *gin.Context) {
 
 	// Return the response
 	c.JSON(http.StatusOK, linkResp)
+}
+
+// Capital One integration handler functions
+
+// initiateCapitalOneAuth initiates the OAuth flow for Capital One
+func initiateCapitalOneAuth(c *gin.Context) {
+	// Get the Capital One service URL from environment variable
+	capitalOneServiceURL := getEnv("CAPITALONE_SERVICE_URL", "http://capitalone-service:8080")
+
+	// Forward the request to the Capital One service
+	var req struct {
+		UserID      string `json:"user_id" binding:"required"`
+		ClientID    string `json:"client_id" binding:"required"`
+		RedirectURI string `json:"redirect_uri" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", capitalOneServiceURL+"/api/v1/capitalone/auth/initiate", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var authResp struct {
+		AuthURL string `json:"auth_url"`
+		State   string `json:"state"`
+	}
+	if err := json.Unmarshal(respBody, &authResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, authResp)
+}
+
+// capitalOneAuthCallback handles the callback from Capital One after user authorization
+func capitalOneAuthCallback(c *gin.Context) {
+	// Get the Capital One service URL from environment variable
+	capitalOneServiceURL := getEnv("CAPITALONE_SERVICE_URL", "http://capitalone-service:8080")
+
+	// Forward the request to the Capital One service
+	var req struct {
+		Code        string `json:"code" binding:"required"`
+		State       string `json:"state" binding:"required"`
+		UserID      string `json:"user_id" binding:"required"`
+		RedirectURI string `json:"redirect_uri" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", capitalOneServiceURL+"/api/v1/capitalone/auth/callback", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var authResp struct {
+		Success     bool   `json:"success"`
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(respBody, &authResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, authResp)
+}
+
+// getCapitalOneAccounts retrieves the list of accounts for the authenticated user
+func getCapitalOneAccounts(c *gin.Context) {
+	// Get the Capital One service URL from environment variable
+	capitalOneServiceURL := getEnv("CAPITALONE_SERVICE_URL", "http://capitalone-service:8080")
+
+	// Get the user ID from the query parameter
+	userID := c.Query("user_id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("GET", capitalOneServiceURL+"/api/v1/capitalone/accounts?user_id="+userID, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var accountsResp struct {
+		Accounts []struct {
+			AccountID        string    `json:"account_id"`
+			AccountName      string    `json:"account_name"`
+			AccountType      string    `json:"account_type"`
+			InstitutionID    string    `json:"institution_id"`
+			InstitutionName  string    `json:"institution_name"`
+			Balance          float64   `json:"balance"`
+			Currency         string    `json:"currency"`
+			LastUpdated      time.Time `json:"last_updated"`
+			Status           string    `json:"status"`
+			AccountPositions []struct {
+				Symbol        string    `json:"symbol"`
+				Quantity      float64   `json:"quantity"`
+				CostBasis     float64   `json:"cost_basis"`
+				MarketValue   float64   `json:"market_value"`
+				GainLoss      float64   `json:"gain_loss"`
+				GainLossPerc  float64   `json:"gain_loss_perc"`
+				LastPrice     float64   `json:"last_price"`
+				LastPriceTime time.Time `json:"last_price_time"`
+			} `json:"account_positions,omitempty"`
+			Transactions []struct {
+				TransactionID   string    `json:"transaction_id"`
+				TransactionDate time.Time `json:"transaction_date"`
+				PostDate        time.Time `json:"post_date"`
+				Description     string    `json:"description"`
+				Category        string    `json:"category"`
+				Amount          float64   `json:"amount"`
+				Type            string    `json:"type"`
+				Status          string    `json:"status"`
+			} `json:"transactions,omitempty"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal(respBody, &accountsResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, accountsResp)
+}
+
+// linkCapitalOneAccount links a Capital One account to a TrustAInvest account
+func linkCapitalOneAccount(c *gin.Context) {
+	// Get the Capital One service URL from environment variable
+	capitalOneServiceURL := getEnv("CAPITALONE_SERVICE_URL", "http://capitalone-service:8080")
+
+	// Forward the request to the Capital One service
+	var req struct {
+		UserID      string `json:"user_id" binding:"required"`
+		AccountID   string `json:"account_id" binding:"required"`
+		AccountName string `json:"account_name,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", capitalOneServiceURL+"/api/v1/capitalone/accounts/link", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var linkResp struct {
+		Success    bool   `json:"success"`
+		Message    string `json:"message,omitempty"`
+		AccountID  string `json:"account_id,omitempty"`
+		InternalID string `json:"internal_id,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &linkResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, linkResp)
+}
+
+// searchCapitalOneBankProducts searches for bank products based on the provided criteria
+func searchCapitalOneBankProducts(c *gin.Context) {
+	// Get the Capital One service URL from environment variable
+	capitalOneServiceURL := getEnv("CAPITALONE_SERVICE_URL", "http://capitalone-service:8080")
+
+	// Get the product ID from the URL parameter
+	productID := c.Param("productId")
+	if productID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID is required"})
+		return
+	}
+
+	// Parse the search request from the request body
+	var searchRequest struct {
+		ProductType string  `json:"productType"`
+		ZipCode     string  `json:"zipCode"`
+		Amount      float64 `json:"amount,omitempty"`
+		Term        int     `json:"term,omitempty"`
+	}
+	if err := c.ShouldBindJSON(&searchRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a new HTTP client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create the request body
+	reqBody, err := json.Marshal(searchRequest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request: " + err.Error()})
+		return
+	}
+
+	// Create the request
+	httpReq, err := http.NewRequest("POST", capitalOneServiceURL+"/api/v1/capitalone/products/"+productID+"/search", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response: " + err.Error()})
+		return
+	}
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		return
+	}
+
+	// Parse the response
+	var productsResp struct {
+		Products []struct {
+			ProductID       string    `json:"productId"`
+			ProductType     string    `json:"productType"`
+			ProductName     string    `json:"productName"`
+			ProductURL      string    `json:"productUrl"`
+			APY             float64   `json:"apy"`
+			MinimumDeposit  float64   `json:"minimumDeposit"`
+			MaximumDeposit  float64   `json:"maximumDeposit,omitempty"`
+			Term            int       `json:"term,omitempty"`
+			TermUnit        string    `json:"termUnit,omitempty"`
+			Features        []string  `json:"features"`
+			EffectiveDate   time.Time `json:"effectiveDate"`
+			ExpirationDate  time.Time `json:"expirationDate,omitempty"`
+			AvailableOnline bool      `json:"availableOnline"`
+		} `json:"products"`
+	}
+	if err := json.Unmarshal(respBody, &productsResp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response: " + err.Error()})
+		return
+	}
+
+	// Return the response
+	c.JSON(http.StatusOK, productsResp)
 }
 
 // getEnv gets an environment variable or returns a default value
