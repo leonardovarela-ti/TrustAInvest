@@ -116,32 +116,32 @@ output "logs_bucket_name" {
 # Container
 output "ecr_repository_urls" {
   description = "The URLs of the ECR repositories"
-  value       = module.container_with_existing_roles.ecr_repository_urls
+  value       = module.container.ecr_repository_urls
 }
 
 output "ecs_cluster_name" {
   description = "The name of the ECS cluster"
-  value       = module.container_with_existing_roles.ecs_cluster_name
+  value       = module.container.ecs_cluster_name
 }
 
 output "alb_dns_name" {
   description = "The DNS name of the ALB"
-  value       = module.container_with_existing_roles.alb_dns_name
+  value       = module.container.alb_dns_name
 }
 
 output "ecs_task_execution_role_arn" {
   description = "The ARN of the ECS task execution role"
-  value       = module.container_with_existing_roles.ecs_task_execution_role_arn
+  value       = module.container.ecs_task_execution_role_arn
 }
 
 output "ecs_task_role_arn" {
   description = "The ARN of the ECS task role"
-  value       = module.container_with_existing_roles.ecs_task_role_arn
+  value       = module.container.ecs_task_role_arn
 }
 
 output "service_discovery_namespace_name" {
   description = "The name of the service discovery namespace"
-  value       = module.container_with_existing_roles.service_discovery_namespace_name
+  value       = module.container.service_discovery_namespace_name
 }
 
 # Frontend

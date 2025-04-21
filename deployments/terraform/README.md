@@ -14,6 +14,70 @@ The infrastructure is organized into the following modules:
 - **container**: ECS cluster, ECR repositories, and ALB
 - **frontend**: CloudFront distribution for the frontend application
 - **monitoring**: CloudWatch dashboards, alarms, and log metrics
+- **dns**: Route53 records for the domain
+
+## Recent Infrastructure Improvements
+
+Several improvements have been made to the infrastructure. All fixes have been consolidated into the main.tf file for better maintainability:
+
+### ALB Access Logs
+
+Application Load Balancer access logs are now enabled and stored in a dedicated S3 bucket:
+
+- **S3 Bucket**: `trustainvest-dev-alb-logs`
+- **Implementation**: The configuration is now consolidated in `main.tf`
+- **Scripts**:
+  - `scripts/check-alb-logs-bucket-policy.sh`: Check and fix ALB logs configuration
+
+### IAM Roles
+
+Custom IAM roles are used to avoid conflicts with existing roles:
+
+- **Implementation**: The configuration is now consolidated in `main.tf`
+- **Roles**:
+  - `trustainvest-dev-ecs-task-execution-role-new`
+  - `trustainvest-dev-ecs-task-role-new`
+
+### WAF Integration
+
+Web Application Firewall is integrated with CloudFront and ALB:
+
+- **Implementation**: The configuration is now consolidated in `main.tf`
+
+### S3 Bucket ACLs for Logs
+
+S3 bucket ACLs are configured to allow CloudFront and ALB to write logs:
+
+- **Implementation**: The configuration is now consolidated in `main.tf`
+
+### DNS Configuration
+
+DNS records are configured for CloudFront and ALB:
+
+- **Implementation**: The configuration is now consolidated in `main.tf` and the DNS module
+
+### Documentation
+
+Detailed documentation is available:
+
+- `docs/terraform-deployment-fixes-updated.md`: Overview of all fixes
+- `docs/alb-access-logs-alternatives.md`: ALB access logs implementation alternatives
+
+### Code Consolidation
+
+All fix files have been consolidated into the main.tf file for better maintainability:
+
+- ✅ `iam_roles_fix.tf` → `main.tf`
+- ✅ `global_waf.tf` → `main.tf`
+- ✅ `dns_module_fix.tf` → `main.tf`
+- ✅ `frontend_module_fix.tf` → `main.tf`
+- ✅ `frontend_waf_fix.tf` → `main.tf`
+- ✅ `monitoring_module_fix.tf` → `main.tf`
+- ✅ `container_module_fix.tf` → `main.tf`
+- ✅ `storage_module_fix.tf` → `main.tf`
+- ✅ `variables_fix.tf` → `variables.tf` (in the DNS module)
+
+The module source has been updated from "container_with_existing_roles" to "container" to avoid issues with data sources that were trying to reference resources that don't exist yet.
 
 ## Environments
 

@@ -117,6 +117,26 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
+### Infrastructure Improvements
+
+The infrastructure includes several improvements and fixes:
+
+1. **ALB Access Logs**: Application Load Balancer access logs are enabled and stored in a dedicated S3 bucket.
+   - Logs are stored in `trustainvest-dev-alb-logs` bucket
+   - Proper bucket policies and permissions are configured
+   - To apply all fixes including ALB logs: `./scripts/apply-terraform-fixes-all.sh`
+   - To check and fix ALB logs configuration: `./scripts/check-alb-logs-bucket-policy.sh`
+
+2. **IAM Roles**: Custom IAM roles are used to avoid conflicts with existing roles.
+
+3. **WAF Integration**: Web Application Firewall is integrated with CloudFront and ALB.
+
+4. **Monitoring**: CloudWatch alarms and dashboards are configured for monitoring.
+
+For detailed information about the infrastructure improvements, see:
+- `docs/terraform-deployment-fixes-updated.md`: Overview of all fixes
+- `docs/alb-access-logs-alternatives.md`: ALB access logs implementation alternatives
+
 ## Project Structure
 
 - `cmd/`: Service entry points

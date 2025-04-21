@@ -59,6 +59,7 @@ docs/aws-cli-config-example.md
 
 # Local development
 *.local
+*.bak
 
 # Flutter/Dart specific
 .dart_tool/
