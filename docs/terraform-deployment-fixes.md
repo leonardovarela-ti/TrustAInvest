@@ -23,8 +23,10 @@ The Terraform deployment was failing due to several permission and configuration
 **Fix**:
 - Updated the S3 bucket policy in `modules/storage/main.tf` to allow CloudFront and ALB to write logs
 - Added the `cloudfront_logs_prefix` and `alb_access_logs_prefix` variables to control the prefix for logs
-- Disabled CloudFront logs in `frontend_module_fix.tf` due to ACL access issues
-- Disabled ALB access logs in `container_module_fix.tf` due to permission issues
+- Added S3 bucket ownership controls and ACL configuration in `storage_module_fix.tf` to enable CloudFront logs
+- Created a comprehensive S3 bucket policy in `storage_module_fix.tf` that includes permissions for both CloudFront and ALB
+- Enabled CloudFront logs in `frontend_module_fix.tf` now that the ACL issues are fixed
+- Disabled ALB access logs in `container_module_fix.tf` due to ongoing permission issues
 
 ### 3. Route53 DNS Records for CloudFront
 
@@ -52,11 +54,21 @@ We created a global WAF web ACL with the following rules:
 - AWS Managed Rules Known Bad Inputs Rule Set
 - Rate-based rule to prevent DDoS attacks
 
+### S3 Bucket ACL and Ownership Controls for CloudFront Logs
+
+We added the following resources to enable CloudFront logs:
+- `aws_s3_bucket_ownership_controls` with `object_ownership = "BucketOwnerPreferred"` to allow the bucket owner to control ACLs
+- `aws_s3_bucket_acl` with `acl = "log-delivery-write"` to allow CloudFront to write logs to the bucket
+
 ### S3 Bucket Policy for Logs
 
-We updated the S3 bucket policy to include permissions for:
-- ALB service account to write access logs
-- CloudFront service to write access logs
+We created a comprehensive S3 bucket policy that includes permissions for:
+- ALB service account (127311923021 for us-east-1) to write access logs to the alb-logs/ prefix
+- CloudFront service to write access logs to the cloudfront-logs/ prefix
+- Both services to get the bucket ACL for permission checks
+- Added specific permission for `logdelivery.elasticloadbalancing.amazonaws.com` service
+
+Despite these changes, we still encountered permission issues with ALB access logs. We've disabled ALB access logs for now and will need to investigate further.
 
 ### DNS Module Modifications
 
@@ -67,23 +79,19 @@ We modified the DNS module to:
 
 ## Next Steps
 
-1. **Fix CloudFront Logs**: Enable ACL access for the S3 bucket to allow CloudFront to write logs
-2. **Fix ALB Access Logs**: Update the S3 bucket policy to allow ALB to write logs
-3. **Fix CloudWatch Log Metrics**: Update the filter pattern to support dimensions
-4. **Enable CloudFront WAF Association**: Configure the global WAF web ACL for CloudFront
+1. **Fix ALB Access Logs**: Further investigate and fix the S3 bucket policy for ALB access logs
+2. **Fix CloudWatch Log Metrics**: Update the filter pattern to support dimensions
+3. **Enable CloudFront WAF Association**: Configure the global WAF web ACL for CloudFront
 
 ## Conclusion
 
-We've made significant progress in fixing the Terraform deployment issues. The infrastructure is now partially deployed, with some features disabled until further fixes can be applied. The DNS records for the www subdomain are now correctly pointing to CloudFront, and the S3 bucket policy has been updated to allow log writing.
+We've made significant progress in fixing the Terraform deployment issues. The infrastructure is now partially deployed, with some features still disabled until further fixes can be applied. The DNS records for the www subdomain are correctly pointing to CloudFront, and CloudFront logs are now enabled with the proper S3 bucket configuration.
 
-## TODO
-
-The terraform apply completed successfully, and the infrastructure is now partially deployed. The www subdomain is correctly pointing to CloudFront, and the S3 bucket policy has been updated to allow log writing.
+## Remaining Issues
 
 There are still some features disabled that will need additional fixes in the future:
+- ALB Access Logs (permission issues)
+- CloudWatch Log Metrics (filter pattern issues)
+- CloudFront WAF Association (needs proper global WAF web ACL configuration)
 
-CloudFront logs (ACL access issues)
-ALB access logs (permission issues)
-CloudWatch Log Metrics (filter pattern issues)
-CloudFront WAF Association (needs proper global WAF web ACL configuration)
 These can be addressed in future updates as needed.
