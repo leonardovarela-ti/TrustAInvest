@@ -34,5 +34,4 @@ output "custom_domain_url" {
   value       = var.custom_domain_name != "" ? "https://${var.custom_domain_name}/v1" : ""
 }
 
-# Get the current AWS region
-data "aws_region" "current" {}
+# The aws_region data source is already defined in logging.tf

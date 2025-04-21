@@ -1,0 +1,56 @@
+# Project and Environment
+project_name = "trustainvest"
+environment  = "dev"
+region       = "us-east-1"
+aws_account_id = "982081083216"
+
+# VPC
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+# Database
+db_instance_class        = "db.t3.small"
+db_allocated_storage     = 20
+db_max_allocated_storage = 100
+db_name                  = "trustainvest"
+db_username              = "trustainvest"
+db_password              = "REPLACE_WITH_SECURE_PASSWORD" # Replace with a secure password (min 8 chars, letters, numbers, symbols)
+db_multi_az              = false
+
+# Cache
+redis_node_type        = "cache.t3.micro"
+redis_engine_version   = "7.0"
+redis_multi_az_enabled = false
+
+# ECS
+ecs_capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+ecs_default_capacity_provider_strategy = [
+  {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+    base              = 1
+  },
+  {
+    capacity_provider = "FARGATE"
+    weight            = 1
+    base              = 0
+  }
+]
+
+# CloudFront and DNS
+cloudfront_price_class    = "PriceClass_100"
+domain_name               = "trustainvest.com"
+alternative_domain_names  = ["www.trustainvest.com"]
+acm_certificate_arn       = null # Replace with your ACM certificate ARN if you have one
+route53_hosted_zone_id    = "Z0514020MO3GNVU62G13"
+route53_hosted_zone_name  = "trustainvest.com"
+
+# Monitoring
+sns_subscription_email_addresses = [] # Replace with email addresses to receive alerts
+
+# Tags
+tags = {
+  Owner       = "DevOps"
+  CostCenter  = "Engineering"
+  Application = "TrustAInvest"
+}

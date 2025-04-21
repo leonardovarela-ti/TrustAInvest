@@ -1,0 +1,53 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:*",
+                "elasticloadbalancing:*",
+                "ecs:*",
+                "ecr:*",
+                "logs:*",
+                "cloudwatch:*",
+                "cloudfront:*",
+                "route53:*",
+                "s3:*",
+                "rds:*",
+                "elasticache:*",
+                "iam:GetRole",
+                "iam:PassRole",
+                "iam:CreateRole",
+                "iam:DeleteRole",
+                "iam:PutRolePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:AttachRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:ListRoles",
+                "iam:ListRolePolicies",
+                "iam:ListAttachedRolePolicies",
+                "iam:TagRole",
+                "iam:CreateServiceLinkedRole",
+                "iam:ListPolicies",
+                "iam:CreatePolicy",
+                "iam:CreatePolicyVersion",
+                "iam:GetPolicy",
+                "iam:GetPolicyVersion",
+                "iam:GetRolePolicy",
+                "kms:*",
+                "cognito-idp:*",
+                "sns:*",
+                "sqs:*",
+                "wafv2:*",
+                "application-autoscaling:*",
+                "servicediscovery:*"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:RequestedRegion": "us-east-1"
+                }
+            }
+        }
+    ]
+}

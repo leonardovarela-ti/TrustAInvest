@@ -46,6 +46,13 @@ dist/
 terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
+!terraform.tfvars.example
+deployments/terraform/environments/dev/terraform.tfvars
+
+# Files with credentials
+.github/workflows/terraform.yml
+docs/aws-cli-setup.md
+docs/aws-cli-config-example.md
 
 # Docker
 .docker-data/

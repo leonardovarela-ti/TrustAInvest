@@ -302,12 +302,7 @@ resource "aws_api_gateway_integration" "notification_service_integration" {
   connection_id           = aws_api_gateway_vpc_link.api_vpc_link.id
 }
 
-# Create a VPC Link to connect API Gateway to the microservices in the VPC
-resource "aws_api_gateway_vpc_link" "api_vpc_link" {
-  name        = "${var.project_name}-${var.environment}-vpc-link"
-  description = "VPC Link for ${var.project_name} ${var.environment} environment"
-  target_arns = [var.nlb_arn]
-}
+# VPC Link is defined in vpc_link.tf
 
 # Configure CORS for the API
 resource "aws_api_gateway_method" "cors_method" {
@@ -378,16 +373,7 @@ resource "aws_api_gateway_method_settings" "api_logging_settings" {
   }
 }
 
-# CloudWatch Log Group for API Gateway
-resource "aws_cloudwatch_log_group" "api_gateway_logs" {
-  name              = "API-Gateway-Execution-Logs_${aws_api_gateway_rest_api.api.id}/${var.environment}"
-  retention_in_days = 7
-  
-  tags = {
-    Environment = var.environment
-    Project     = var.project_name
-  }
-}
+# CloudWatch Log Group for API Gateway is defined in logging.tf
 
 # API Gateway Usage Plan
 resource "aws_api_gateway_usage_plan" "api_usage_plan" {

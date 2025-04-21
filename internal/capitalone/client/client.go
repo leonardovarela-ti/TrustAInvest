@@ -22,7 +22,7 @@ const (
 
 	// Capital One API endpoints
 	authEndpoint           = "/oauth2/authorize"
-	tokenEndpoint          = "/oauth2/token"
+	tokenEndpoint          = "/oauth2/token" // Updated to match the documentation
 	accountsEndpoint       = "/accounts"
 	accountDetailsEndpoint = "/accounts/%s"
 	transactionsEndpoint   = "/accounts/%s/transactions"
@@ -68,6 +68,11 @@ func (c *CapitalOneClient) SetCredentials(accessToken, refreshToken string, expi
 	c.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
 }
 
+// GetClientID returns the client ID
+func (c *CapitalOneClient) GetClientID() string {
+	return c.clientID
+}
+
 // GetAuthorizationURL generates an authorization URL for the user to authorize the application
 func (c *CapitalOneClient) GetAuthorizationURL(redirectURI string) (string, string, error) {
 	// Generate a random state parameter to prevent CSRF
@@ -95,6 +100,9 @@ func (c *CapitalOneClient) GetAuthorizationURL(redirectURI string) (string, stri
 func (c *CapitalOneClient) ExchangeCodeForToken(code, redirectURI string) (string, string, int, error) {
 	// Create the token URL
 	tokenURL := c.baseURL + tokenEndpoint
+	fmt.Printf("DEBUG: Token URL: %s\n", tokenURL)
+	fmt.Printf("DEBUG: Client ID: %s\n", c.clientID)
+	fmt.Printf("DEBUG: Redirect URI: %s\n", redirectURI)
 
 	// Create the request body
 	data := url.Values{}
@@ -104,41 +112,68 @@ func (c *CapitalOneClient) ExchangeCodeForToken(code, redirectURI string) (strin
 	data.Set("client_id", c.clientID)
 	data.Set("client_secret", c.clientSecret)
 
-	// Create the request
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return "", "", 0, fmt.Errorf("failed to create token request: %w", err)
-	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	// Print the request data for debugging
+	fmt.Printf("DEBUG: Request data: %s\n", data.Encode())
 
-	// Send the request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", "", 0, fmt.Errorf("failed to send token request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", 0, fmt.Errorf("failed to read token response: %w", err)
+	// Try different token endpoints if the standard one fails
+	tokenEndpoints := []string{
+		tokenEndpoint,          // Current endpoint: /oauth2/token
+		"/oauth/token",         // Alternative endpoint
+		"/api/oauth2/token",    // Another alternative
+		"/api/v1/oauth2/token", // Another alternative
 	}
 
-	// Check the response status code
-	if resp.StatusCode != http.StatusOK {
-		return "", "", 0, fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+	var lastErr error
+	for _, endpoint := range tokenEndpoints {
+		currentTokenURL := c.baseURL + endpoint
+		fmt.Printf("DEBUG: Trying token URL: %s\n", currentTokenURL)
+
+		// Create the request
+		req, err := http.NewRequest("POST", currentTokenURL, strings.NewReader(data.Encode()))
+		if err != nil {
+			lastErr = fmt.Errorf("failed to create token request: %w", err)
+			continue
+		}
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Add("Accept", "application/json")
+
+		// Send the request
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to send token request: %w", err)
+			continue
+		}
+
+		// Read the response body
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read token response: %w", err)
+			continue
+		}
+
+		// Check the response status code
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+			fmt.Printf("DEBUG: Endpoint %s failed with status %d: %s\n", endpoint, resp.StatusCode, string(body))
+			continue
+		}
+
+		// Parse the response
+		var tokenResp models.CapitalOneTokenResponse
+		if err := json.Unmarshal(body, &tokenResp); err != nil {
+			lastErr = fmt.Errorf("failed to parse token response: %w", err)
+			continue
+		}
+
+		// Set the credentials in the client
+		c.SetCredentials(tokenResp.AccessToken, tokenResp.RefreshToken, tokenResp.ExpiresIn)
+		fmt.Printf("DEBUG: Successfully obtained token from endpoint: %s\n", endpoint)
+
+		return tokenResp.AccessToken, tokenResp.RefreshToken, tokenResp.ExpiresIn, nil
 	}
 
-	// Parse the response
-	var tokenResp models.CapitalOneTokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return "", "", 0, fmt.Errorf("failed to parse token response: %w", err)
-	}
-
-	// Set the credentials in the client
-	c.SetCredentials(tokenResp.AccessToken, tokenResp.RefreshToken, tokenResp.ExpiresIn)
-
-	return tokenResp.AccessToken, tokenResp.RefreshToken, tokenResp.ExpiresIn, nil
+	return "", "", 0, fmt.Errorf("all token endpoints failed, last error: %w", lastErr)
 }
 
 // RefreshAccessToken refreshes the access token using the refresh token

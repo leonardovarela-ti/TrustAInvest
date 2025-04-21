@@ -1,0 +1,153 @@
+name: "Terraform"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deployments/terraform/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'deployments/terraform/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  TF_LOG: INFO
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "982081083216"
+  # Do not hardcode credentials here. Use GitHub secrets instead.
+
+jobs:
+  terraform:
+    name: "Terraform"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    defaults:
+      run:
+        shell: bash
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Determine Environment
+        id: determine-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+            echo "ACTION=plan" >> $GITHUB_ENV
+          fi
+      
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: deployments/terraform
+        continue-on-error: true
+      
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: deployments/terraform/environments/${{ env.ENVIRONMENT }}
+      
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        working-directory: deployments/terraform/environments/${{ env.ENVIRONMENT }}
+      
+      - name: Terraform Plan
+        id: plan
+        if: env.ACTION == 'plan' || env.ACTION == 'apply'
+        run: terraform plan -no-color -input=false -out=tfplan -var="aws_account_id=${{ env.AWS_ACCOUNT_ID }}" -var="route53_hosted_zone_id=Z0514020MO3GNVU62G13" -var="route53_hosted_zone_name=trustainvest.com"
+        working-directory: deployments/terraform/environments/${{ env.ENVIRONMENT }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+      
+      - name: Upload Plan
+        if: env.ACTION == 'plan' || env.ACTION == 'apply'
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ env.ENVIRONMENT }}
+          path: deployments/terraform/environments/${{ env.ENVIRONMENT }}/tfplan
+          retention-days: 5
+      
+      - name: Terraform Apply
+        id: apply
+        if: env.ACTION == 'apply'
+        run: terraform apply -auto-approve tfplan
+        working-directory: deployments/terraform/environments/${{ env.ENVIRONMENT }}
+      
+      - name: Terraform Destroy
+        id: destroy
+        if: env.ACTION == 'destroy'
+        run: terraform destroy -auto-approve -var="aws_account_id=${{ env.AWS_ACCOUNT_ID }}" -var="route53_hosted_zone_id=Z0514020MO3GNVU62G13" -var="route53_hosted_zone_name=trustainvest.com"
+        working-directory: deployments/terraform/environments/${{ env.ENVIRONMENT }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+      
+      - name: Comment PR
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request' && env.ACTION == 'plan'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>
+            
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
