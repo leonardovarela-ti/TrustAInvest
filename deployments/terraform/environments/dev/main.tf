@@ -127,33 +127,66 @@ module "cache" {
 }
 
 # Container
-module "container" {
-  source = "../../modules/container"
-  
-  project_name = var.project_name
-  environment  = var.environment
-  region       = var.region
-  
-  vpc_id               = module.networking.vpc_id
-  subnet_ids           = module.networking.private_subnet_ids
-  security_group_id    = module.networking.ecs_security_group_id
-  alb_security_group_id = module.networking.alb_security_group_id
-  
-  logs_bucket_name = module.storage.logs_bucket_name
-  kms_key_arn      = module.security.kms_key_arn
-  waf_web_acl_arn  = module.security.waf_web_acl_arn
-  
-  # Enable WAF association
-  enable_waf_association = true
-  
-  # Disable ALB access logs until S3 bucket permissions are fixed
-  alb_access_logs_enabled = try(local.container_alb_access_logs_enabled, true)
-  
-  ecs_capacity_providers               = var.ecs_capacity_providers
-  ecs_default_capacity_provider_strategy = var.ecs_default_capacity_provider_strategy
-  
-  tags = local.tags
-}
+# Using container_with_existing_roles module from iam_roles_fix.tf instead
+# This module handles existing IAM roles and has ALB access logs explicitly disabled
+# module "container" {
+#   source = "../../modules/container"
+#   
+#   project_name = var.project_name
+#   environment  = var.environment
+#   region       = var.region
+#   
+#   vpc_id               = module.networking.vpc_id
+#   subnet_ids           = module.networking.private_subnet_ids
+#   security_group_id    = module.networking.ecs_security_group_id
+#   alb_security_group_id = module.networking.alb_security_group_id
+#   
+#   logs_bucket_name = module.storage.logs_bucket_name
+#   kms_key_arn      = module.security.kms_key_arn
+#   waf_web_acl_arn  = module.security.waf_web_acl_arn
+#   
+#   # Enable WAF association
+#   enable_waf_association = true
+#   
+#   # Disable ALB access logs until S3 bucket permissions are fixed
+#   alb_access_logs_enabled = try(local.container_alb_access_logs_enabled, true)
+#   
+#   ecs_capacity_providers               = var.ecs_capacity_providers
+#   ecs_default_capacity_provider_strategy = var.ecs_default_capacity_provider_strategy
+#   
+#   tags = local.tags
+# }
+
+# Also commenting out the container_override module from container_module_fix.tf
+# We're now using the container_with_existing_roles module from iam_roles_fix.tf
+# module "container_override" {
+#   source = "../../modules/container"
+#   
+#   # Copy all the parameters from the original module call
+#   project_name = var.project_name
+#   environment  = var.environment
+#   region       = var.region
+#   
+#   vpc_id               = module.networking.vpc_id
+#   subnet_ids           = module.networking.private_subnet_ids
+#   security_group_id    = module.networking.ecs_security_group_id
+#   alb_security_group_id = module.networking.alb_security_group_id
+#   
+#   logs_bucket_name = module.storage.logs_bucket_name
+#   kms_key_arn      = module.security.kms_key_arn
+#   waf_web_acl_arn  = module.security.waf_web_acl_arn
+#   
+#   # Enable WAF association
+#   enable_waf_association = true
+#   
+#   # Explicitly disable ALB access logs
+#   alb_access_logs_enabled = false
+#   
+#   ecs_capacity_providers               = var.ecs_capacity_providers
+#   ecs_default_capacity_provider_strategy = var.ecs_default_capacity_provider_strategy
+#   
+#   tags = local.tags
+# }
 
 # Frontend
 module "frontend" {
@@ -173,8 +206,8 @@ module "frontend" {
   # Disable CloudFront WAF association until we have a global WAF web ACL
   waf_web_acl_arn  = try(local.frontend_cloudfront_waf_enabled, false) ? module.security.waf_web_acl_arn : null
   
-  alb_dns_name = module.container.alb_dns_name
-  alb_zone_id  = module.container.alb_zone_id
+  alb_dns_name = module.container_with_existing_roles.alb_dns_name
+  alb_zone_id  = module.container_with_existing_roles.alb_zone_id
   
   domain_name            = var.domain_name
   alternative_domain_names = var.alternative_domain_names
@@ -198,8 +231,8 @@ module "monitoring" {
   vpc_id                   = module.networking.vpc_id
   db_instance_id           = module.database.db_instance_id
   redis_replication_group_id = module.cache.redis_replication_group_id
-  alb_arn_suffix           = module.container.alb_arn_suffix
-  ecs_cluster_name         = module.container.ecs_cluster_name
+  alb_arn_suffix           = module.container_with_existing_roles.alb_arn_suffix
+  ecs_cluster_name         = module.container_with_existing_roles.ecs_cluster_name
   cloudfront_distribution_id = module.frontend.cloudfront_distribution_id
   
   logs_bucket_name = module.storage.logs_bucket_name
@@ -247,8 +280,8 @@ module "dns" {
   cloudfront_distribution_domain_name  = module.frontend.cloudfront_distribution_domain_name
   cloudfront_distribution_hosted_zone_id = module.frontend.cloudfront_distribution_hosted_zone_id
   
-  alb_dns_name = module.container.alb_dns_name
-  alb_zone_id  = module.container.alb_zone_id
+  alb_dns_name = module.container_with_existing_roles.alb_dns_name
+  alb_zone_id  = module.container_with_existing_roles.alb_zone_id
   
   create_api_record = true
   enable_api_dns    = true

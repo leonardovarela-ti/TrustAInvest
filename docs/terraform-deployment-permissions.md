@@ -51,6 +51,7 @@ The original policy is missing the following critical permissions:
 - `iam:TagRole` - Required when creating IAM roles with tags
 - `iam:ListPolicies` - Required for listing and managing IAM policies
 - `iam:GetRolePolicy` - Required for managing role policies
+- `iam:ListInstanceProfilesForRole` - Required when deleting IAM roles
 - `servicediscovery:*` - Required for AWS Cloud Map service discovery operations
 
 ## Solution
@@ -252,6 +253,7 @@ The updated policy includes the following additional permissions:
 "iam:GetPolicy",
 "iam:GetPolicyVersion",
 "iam:GetRolePolicy",
+"iam:ListInstanceProfilesForRole",
 "servicediscovery:*"
 ```
 
